@@ -1,0 +1,34 @@
+# Gradle files
+.gradle
+**/build/
+/build
+/app/build
+/app/release
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+!.idea/copyright/
+!.idea/icon.png
+
+# Built APKs / Bundles
+*.apk
+*.aab
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# C/C++ build artifacts
+.externalNativeBuild
+.cxx
+
+# Captured memory/heap dumps
+/captures
+
+# IDE caches & scratch space
+.kotlin/
+.artifacts/

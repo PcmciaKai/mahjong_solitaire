@@ -39,8 +39,14 @@ As a special exception to the GNU General Public License version 3.0, the copyri
 
 * **Author / Publisher:** みんなの創作支援サイトＴスタ (T-STUDIO)
 * **Source:** [Free Sound Mahjong Sound Pack (itch.io)](https://t-studio-tst.itch.io/free-sound-mahjong-sound-pack)
-* **Required Credit:** `みんなの創作支援サイトＴスタ`
-* **License:** Free for personal and commercial use with mandatory creator attribution.
+* **Credit:** みんなの創作支援サイトＴスタ
+* **License:** [T-STUDIO terms of use](https://tnosite.com/agreement-4/)
+* **Permission:** The author, Tatsuro, confirmed by private message on 3 October 2026 that
+  including these files in this open-source repository is fine, provided they
+  are not presented as anyone else's work.
+* **Note:** These sound files are NOT covered by the GPL. If you fork or
+  redistribute this project, please keep this attribution, and contact
+  T-STUDIO before reusing the sounds elsewhere.
 
 ### Background Music
 

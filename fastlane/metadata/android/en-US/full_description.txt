@@ -1,0 +1,17 @@
+Classic Mahjong Solitaire designed for a smooth, clean experience on low-performance phones and tablets. No ads, no interruptions.
+
+<b>Features</b>
+
+<ul>
+<li><b>Guaranteed Solvable Boards:</b> Every generated game features a verified path to completion.</li>
+<li><b>Multiple Constellation Layouts:</b> Includes phone-optimized compact layouts as well as classic full-board constellations suitable for larger displays and tablets.</li>
+<li><b>Smooth Interaction & Canvas Rendering:</b> Optimized tile rendering engine with dynamic scaling and depth effects.</li>
+<li><b>Interactive Tutorial:</b> A guided tutorial level that teaches new players how the game works.</li>
+<li><b>Player Tools:</b> Unlimited hints, undo, reshuffling, and optional highlighting for playable tiles.</li>
+<li><b>Audio & Haptics:</b> Tactile tile collision sounds, ambient background music, and subtle haptic feedback (can be toggled in settings).</li>
+<li><b>Auto-Save:</b> Progress is saved automatically on state change.</li>
+</ul>
+
+<b>Privacy</b>
+
+No ads, no tracking, no network access. Everything is calculated on your device.

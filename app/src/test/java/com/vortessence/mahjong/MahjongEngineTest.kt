@@ -1,7 +1,10 @@
 package com.vortessence.mahjong
 
 import com.vortessence.mahjong.data.model.BoardTile
+import com.vortessence.mahjong.data.model.Constellation
+import com.vortessence.mahjong.data.model.Difficulty
 import com.vortessence.mahjong.data.model.GameSettings
+import com.vortessence.mahjong.data.model.GameState
 import com.vortessence.mahjong.data.model.SavedGameState
 import com.vortessence.mahjong.data.model.TableSurface
 import com.vortessence.mahjong.data.model.Tile
@@ -458,5 +461,62 @@ class MahjongEngineTest {
         if (problems.isNotEmpty()) {
             throw AssertionError("Tile support issues:\n" + problems.joinToString("\n"))
         }
+    }
+
+    /**
+     * Two free East Winds plus two Bamboo tiles stacked on top of each other: a pair is still
+     * available, but the board can no longer be cleared.
+     */
+    private fun stackedDeadEndState(): GameState {
+        val east = Tile(TileSuit.WIND, Tile.WIND_EAST)
+        val bamboo = Tile(TileSuit.BAMBOO, 3)
+        val tiles = listOf(
+            BoardTile(id = 0, tile = east, position = TilePosition(0f, 0f, 0)),
+            BoardTile(id = 1, tile = east, position = TilePosition(6f, 0f, 0)),
+            BoardTile(id = 2, tile = bamboo, position = TilePosition(12f, 0f, 0)),
+            BoardTile(id = 3, tile = bamboo, position = TilePosition(12f, 0f, 1)),
+        )
+        val constellation = Constellation(
+            id = "test_stack",
+            name = "Test Stack",
+            difficulty = Difficulty.EASY,
+            description = "",
+            positions = tiles.map { it.position },
+        )
+        val refreshed = MahjongGameEngine.recalculateFreedom(tiles)
+        return GameState(constellation = constellation, tiles = refreshed)
+    }
+
+    @Test
+    fun testStackedMatchingTilesAreDetectedAsDeadEnd() {
+        val state = stackedDeadEndState()
+        val pairs = MahjongGameEngine.findAvailablePairs(state.tiles)
+        assertEquals("East Winds are still a free pair", 1, pairs.size)
+        assertTrue("Board must be detected as stuck", MahjongGameEngine.isStuck(state.tiles, pairs))
+    }
+
+    @Test
+    fun testReshuffleResolvesFourTileDeadEnd() {
+        repeat(20) {
+            val reshuffled = MahjongGameEngine.reshuffleRemaining(stackedDeadEndState())
+            assertFalse("Reshuffle must leave a solvable board", reshuffled.isStalemate)
+            val active = reshuffled.tiles.filter { !it.isRemoved }
+            assertEquals(4, active.size)
+            assertEquals(true, BoardSolvabilityGenerator.canBeCleared(active.map { it.position to it.tile }))
+        }
+    }
+
+    @Test
+    fun testReshuffleTakesBackPairWhenLastTwoTilesAreStacked() {
+        val start = stackedDeadEndState()
+        val (selected, _) = MahjongGameEngine.handleTileTap(start, 0)
+        val (matched, result) = MahjongGameEngine.handleTileTap(selected, 1)
+        assertTrue(result is TileTapResult.Matched)
+        assertTrue("Two stacked tiles left must be a stalemate", matched.isStalemate)
+
+        val reshuffled = MahjongGameEngine.reshuffleRemaining(matched)
+        assertFalse("Reshuffle must recover from the stacked pair", reshuffled.isStalemate)
+        assertEquals(4, reshuffled.remainingTilesCount)
+        assertTrue(reshuffled.moveHistory.isEmpty())
     }
 }

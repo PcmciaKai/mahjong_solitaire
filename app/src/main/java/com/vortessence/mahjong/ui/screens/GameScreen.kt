@@ -114,6 +114,7 @@ fun GameScreen(
     if (gameState.isStalemate && !gameState.isWon) {
         StalemateDialog(
             canUndo = gameState.moveHistory.isNotEmpty(),
+            hasFreePairs = gameState.availablePairsCount > 0,
             onReshuffle = onReshuffle,
             onUndo = onUndo,
             onRestart = onRestart

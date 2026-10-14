@@ -1,0 +1,1 @@
+- Fixed an issue where you could be stuck in a dead end and shuffle would not be able to help you

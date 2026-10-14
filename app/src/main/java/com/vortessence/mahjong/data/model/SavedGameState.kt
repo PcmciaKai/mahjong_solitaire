@@ -39,7 +39,7 @@ data class SavedGameState(
         val availablePairs = MahjongGameEngine.findAvailablePairs(tilesWithFreedom)
         val remainingCount = tilesWithFreedom.count { !it.isRemoved }
         val isWon = remainingCount == 0
-        val isStalemate = !isWon && availablePairs.isEmpty()
+        val isStalemate = MahjongGameEngine.isStuck(tilesWithFreedom, availablePairs)
 
         return GameState(
             constellation = constellation,

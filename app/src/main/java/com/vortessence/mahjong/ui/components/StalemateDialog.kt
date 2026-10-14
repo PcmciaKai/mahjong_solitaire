@@ -23,6 +23,7 @@ import androidx.compose.ui.window.Dialog
 @Composable
 fun StalemateDialog(
     canUndo: Boolean,
+    hasFreePairs: Boolean,
     onReshuffle: () -> Unit,
     onUndo: () -> Unit,
     onRestart: () -> Unit,
@@ -55,7 +56,11 @@ fun StalemateDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "There are no matching pairs left among the free tiles. You can reshuffle the remaining tiles, undo the last move, or restart.",
+                    text = if (hasFreePairs) {
+                        "The remaining tiles can no longer be cleared. You can reshuffle the remaining tiles, undo the last move, or restart."
+                    } else {
+                        "There are no matching pairs left among the free tiles. You can reshuffle the remaining tiles, undo the last move, or restart."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

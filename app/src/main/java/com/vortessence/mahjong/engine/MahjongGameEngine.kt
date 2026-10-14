@@ -4,6 +4,8 @@ import com.vortessence.mahjong.data.model.BoardTile
 import com.vortessence.mahjong.data.model.Constellation
 import com.vortessence.mahjong.data.model.GameState
 import com.vortessence.mahjong.data.model.Move
+import com.vortessence.mahjong.data.model.Tile
+import com.vortessence.mahjong.data.model.TilePosition
 
 sealed class TileTapResult {
     data class Blocked(val tileId: Int) : TileTapResult()
@@ -14,6 +16,9 @@ sealed class TileTapResult {
 }
 
 object MahjongGameEngine {
+
+    /** Boards up to this size are searched exhaustively for dead ends after every change. */
+    private const val DEAD_END_CHECK_MAX_TILES = 20
 
     /**
      * Initializes a new game state with a solvable board layout.
@@ -96,7 +101,7 @@ object MahjongGameEngine {
             val availablePairs = findAvailablePairs(refreshedTiles)
             val remainingCount = refreshedTiles.count { !it.isRemoved }
             val isWon = remainingCount == 0
-            val isStalemate = !isWon && availablePairs.isEmpty()
+            val isStalemate = isStuck(refreshedTiles, availablePairs)
 
             val newHistory = currentState.moveHistory + Move(currentSelectedId, tileId)
 
@@ -152,7 +157,7 @@ object MahjongGameEngine {
             moveHistory = remainingHistory,
             movesCount = (currentState.movesCount - 1).coerceAtLeast(0),
             isWon = false,
-            isStalemate = false,
+            isStalemate = isStuck(refreshedTiles, availablePairs),
             availablePairsCount = availablePairs.size
         )
     }
@@ -177,16 +182,26 @@ object MahjongGameEngine {
      * Reshuffles remaining unremoved tiles in case of stalemate.
      */
     fun reshuffleRemaining(currentState: GameState): GameState {
-        val activeTiles = currentState.tiles.filter { !it.isRemoved }
-        if (activeTiles.size <= 2) return currentState
+        // Some layouts cannot be solved by any arrangement (e.g. the last two tiles stacked on
+        // top of each other), so take back matched pairs until a solvable redistribution exists.
+        var state = currentState
+        var solvable: Map<TilePosition, Tile>?
+        while (true) {
+            val activeTiles = state.tiles.filter { !it.isRemoved }
+            if (activeTiles.isEmpty()) return currentState
+            solvable = BoardSolvabilityGenerator.reassignSolvable(
+                positions = activeTiles.map { it.position },
+                tiles = activeTiles.map { it.tile },
+            )
+            if (solvable != null || state.moveHistory.isEmpty()) break
+            state = undo(state)
+        }
 
         // Prefer a solvable redistribution; fall back to a plain shuffle if none exists
-        val solvable = BoardSolvabilityGenerator.reassignSolvable(
-            positions = activeTiles.map { it.position },
-            tiles = activeTiles.map { it.tile },
-        )
-        val activeMap = if (solvable != null) {
-            activeTiles.associate { it.id to solvable.getValue(it.position) }
+        val activeTiles = state.tiles.filter { !it.isRemoved }
+        val solvableMap = solvable
+        val activeMap = if (solvableMap != null) {
+            activeTiles.associate { it.id to solvableMap.getValue(it.position) }
         } else {
             val activeTilesValues = activeTiles.map { it.tile }.shuffled()
             activeTiles.indices.associate { i ->
@@ -194,7 +209,7 @@ object MahjongGameEngine {
             }
         }
 
-        val updatedTiles = currentState.tiles.map { t ->
+        val updatedTiles = state.tiles.map { t ->
             if (activeMap.containsKey(t.id)) {
                 t.copy(tile = activeMap[t.id]!!)
             } else {
@@ -205,14 +220,26 @@ object MahjongGameEngine {
         val refreshedTiles = recalculateFreedom(updatedTiles)
         val availablePairs = findAvailablePairs(refreshedTiles)
 
-        return currentState.copy(
+        return state.copy(
             tiles = refreshedTiles,
             selectedTileId = null,
             hintPair = null,
             blockedTileId = null,
-            isStalemate = availablePairs.isEmpty() && refreshedTiles.any { !it.isRemoved },
+            isStalemate = isStuck(refreshedTiles, availablePairs),
             availablePairsCount = availablePairs.size
         )
+    }
+
+    /**
+     * Whether the game cannot be finished from here: either no free pair is left, or the few
+     * remaining tiles provably can no longer be cleared (e.g. two matching tiles stacked).
+     */
+    fun isStuck(tiles: List<BoardTile>, availablePairs: List<Pair<Int, Int>>): Boolean {
+        val activeTiles = tiles.filter { !it.isRemoved }
+        if (activeTiles.isEmpty()) return false
+        if (availablePairs.isEmpty()) return true
+        if (activeTiles.size > DEAD_END_CHECK_MAX_TILES) return false
+        return BoardSolvabilityGenerator.canBeCleared(activeTiles.map { it.position to it.tile }) == false
     }
 
     /**

@@ -39,23 +39,24 @@ class TutorialTest {
         var state = MahjongGameEngine.startNewGame(tutorial)
         assertEquals(0, TutorialScript.resumeStepFor(state))
 
-        for (step in TutorialScript.steps) {
+        for ((index, step) in TutorialScript.steps.withIndex()) {
+            val name = "Step ${index + 1}"
             when (step.action) {
                 TutorialAction.CONTINUE -> Unit
                 TutorialAction.TAP_BLOCKED -> {
                     val target = step.targetTileIds.single()
                     val (newState, result) = MahjongGameEngine.handleTileTap(state, target)
-                    assertTrue("${step.title}: target must be blocked", result is TileTapResult.Blocked)
+                    assertTrue("$name: target must be blocked", result is TileTapResult.Blocked)
                     assertTrue(TutorialScript.isStepComplete(step, result, newState))
                     state = newState
                 }
                 TutorialAction.MATCH_PAIR -> {
                     val (a, b) = step.targetTileIds.toList()
                     val tiles = state.tiles.associateBy { it.id }
-                    assertTrue("${step.title}: targets must be free", tiles.getValue(a).isFree && tiles.getValue(b).isFree)
+                    assertTrue("$name: targets must be free", tiles.getValue(a).isFree && tiles.getValue(b).isFree)
                     val (selected, _) = MahjongGameEngine.handleTileTap(state, a)
                     val (matched, result) = MahjongGameEngine.handleTileTap(selected, b)
-                    assertTrue("${step.title}: targets must match", result is TileTapResult.Matched)
+                    assertTrue("$name: targets must match", result is TileTapResult.Matched)
                     assertTrue(TutorialScript.isStepComplete(step, result, matched))
                     state = matched
                 }
@@ -86,7 +87,7 @@ class TutorialTest {
         val start = MahjongGameEngine.startNewGame(tutorial)
         val state = start.copy(tiles = start.tiles.map { if (it.id == 0 || it.id == 3) it.copy(isRemoved = true) else it })
         val resumed = TutorialScript.steps[TutorialScript.resumeStepFor(state)!!]
-        assertEquals("Seasons", resumed.title)
+        assertEquals(R.string.tutorial_seasons_title, resumed.titleRes)
     }
 
     private fun alwaysWinnable(state: GameState): Boolean {

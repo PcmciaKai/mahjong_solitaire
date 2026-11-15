@@ -1,3 +1,177 @@
 <resources>
     <string name="app_name">Mahjong Solitaire</string>
+
+    <!-- Common -->
+    <string name="back">Back</string>
+    <string name="close">Close</string>
+    <string name="cancel">Cancel</string>
+    <string name="level_title">Level %1$d: %2$s</string>
+    <string name="level_subtitle">Level %1$d • %2$s</string>
+    <plurals name="tiles_remaining">
+        <item quantity="one">%d tile remaining</item>
+        <item quantity="other">%d tiles remaining</item>
+    </plurals>
+    <plurals name="tile_count">
+        <item quantity="one">%d tile</item>
+        <item quantity="other">%d tiles</item>
+    </plurals>
+    <string name="best_time">Best: %1$s</string>
+    <string name="best_time_assisted">Best: %1$s (assisted)</string>
+    <string name="completed">Completed</string>
+    <string name="locked">Locked</string>
+    <string name="details_separator">%1$s • %2$s</string>
+
+    <!-- Difficulty -->
+    <string name="difficulty_easy">Easy</string>
+    <string name="difficulty_medium">Medium</string>
+    <string name="difficulty_hard">Hard</string>
+    <string name="difficulty_expert">Expert</string>
+
+    <!-- Table surfaces -->
+    <string name="surface_green_mat">Green Mat</string>
+    <string name="surface_walnut">Walnut</string>
+
+    <!-- Main menu -->
+    <string name="menu_title_mahjong">Mahjong</string>
+    <string name="menu_title_solitaire">Solitaire</string>
+    <string name="menu_continue">Continue Game</string>
+    <string name="menu_play_levels">Play Levels</string>
+    <string name="menu_choose_constellation">Choose Constellation</string>
+    <string name="menu_statistics">Statistics</string>
+    <string name="menu_settings">Settings</string>
+
+    <!-- Game header -->
+    <string name="hint">Hint</string>
+    <string name="undo">Undo</string>
+    <string name="restart">Restart</string>
+    <string name="header_tiles">Tiles: </string>
+    <string name="header_tiles_count">%1$d / %2$d</string>
+    <string name="header_pairs">Pairs: %1$d</string>
+    <string name="header_no_moves">No moves</string>
+
+    <!-- Restart confirmation -->
+    <string name="restart_confirm_title">Restart this game?</string>
+    <string name="restart_confirm_message">Your progress on this board will be lost and a new board will be dealt.</string>
+
+    <!-- Game won dialog -->
+    <string name="won_tutorial_complete">Tutorial Complete</string>
+    <string name="won_constellation_complete">Constellation Complete</string>
+    <string name="stat_time">Time</string>
+    <string name="stat_moves">Moves</string>
+    <string name="stat_difficulty">Difficulty</string>
+    <string name="won_assists">Hints: %1$d • Undos: %2$d • Reshuffles: %3$d</string>
+    <string name="won_no_assists">Solved without hints, undos or reshuffles</string>
+    <string name="won_next_level">Next Level</string>
+    <string name="won_play_again">Play Again</string>
+    <string name="won_main_menu">Main Menu</string>
+
+    <!-- Stalemate dialog -->
+    <string name="stalemate_title">No Available Moves</string>
+    <string name="stalemate_title_dead_end">Dead End</string>
+    <string name="stalemate_message_dead_end">There are still pairs left, but the remaining tiles can no longer all be cleared, whichever pair you take. You can go back to the last position that can still be won, reshuffle the remaining tiles, or restart.</string>
+    <string name="stalemate_message_no_pairs">There are no matching pairs left among the free tiles. You can go back to the last position that can still be won, reshuffle the remaining tiles, or restart.</string>
+    <string name="stalemate_reshuffle">Reshuffle Tiles</string>
+    <string name="stalemate_undo_to_winnable">Go Back to Winnable Position</string>
+    <string name="stalemate_restart">Restart Constellation</string>
+
+    <!-- Level select -->
+    <string name="levels_title">Levels Progression</string>
+
+    <!-- Constellation select -->
+    <string name="constellations_title">Constellations</string>
+    <string name="filter_all_difficulties">All Difficulties</string>
+    <string name="filter_all_layouts">All Layouts</string>
+    <string name="filter_phone">📱 Phone (Vertical)</string>
+    <string name="filter_tablet">💻 Classic / Tablet (Wide)</string>
+    <string name="layout_tutorial">🎓 Tutorial</string>
+    <string name="layout_phone">📱 Phone</string>
+    <string name="layout_tablet">💻 Tablet</string>
+    <string name="constellation_details">%1$s • %2$s • %3$s</string>
+    <string name="best_time_long">Best time: %1$s</string>
+    <string name="best_time_long_assisted">Best time: %1$s (assisted)</string>
+
+    <!-- Statistics -->
+    <string name="stats_title">Statistics</string>
+    <string name="stats_played">Played</string>
+    <string name="stats_completed">Completed</string>
+    <string name="stats_win_rate">Win Rate</string>
+    <string name="stats_win_rate_value">%1$d%%</string>
+    <string name="stats_highest_level">Highest Level</string>
+    <string name="stats_best_times">Best Times</string>
+    <string name="stats_best_times_empty">Complete your first constellation to see your best times here!</string>
+    <string name="stats_assisted">assisted</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_audio">Sound &amp; Music</string>
+    <string name="settings_sounds">Game Sounds</string>
+    <string name="settings_sounds_summary">Tile tap, match, and completion sounds</string>
+    <string name="settings_sound_volume">Sound Volume: %1$d%%</string>
+    <string name="settings_music">Background Music</string>
+    <string name="settings_music_summary">Tranquil Chinese pentatonic melody</string>
+    <string name="settings_music_volume">Music Volume: %1$d%%</string>
+    <string name="settings_section_gameplay">Gameplay</string>
+    <string name="settings_highlight_free">Highlight Selectable Tiles</string>
+    <string name="settings_highlight_free_summary">Visually distinguish tiles that can currently be selected</string>
+    <string name="settings_auto_zoom">Automatic Board Scaling</string>
+    <string name="settings_auto_zoom_summary">Dynamically sizes the board to fit all screen sizes. Pinch to zoom in further.</string>
+    <string name="settings_vibration">Vibration &amp; Haptics</string>
+    <string name="settings_vibration_summary">Gentle physical feedback on tile selection and matches</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_table_surface">Table Surface</string>
+    <string name="settings_table_surface_summary">Material surface of the playing table</string>
+    <string name="settings_corner_index">Draw Corner Index</string>
+    <string name="settings_corner_index_summary">Display corner numbers and letters on tiles for easy reading</string>
+    <string name="settings_support">♥︎ Support this app</string>
+
+    <!-- Support dialog -->
+    <string name="support_message">I\'m very glad that you like this app. This app is open-source and will always be free, but I\'d be happy if you were to buy me a coffee.\n\nUnfortunately, due to Google\'s policies, I can\'t just add a button that would link to a page where you can easily donate. I\'m sure that if you can find this project on my GitHub (PcmciaKai), you can also find a way to leave a tip.</string>
+
+    <!-- Tutorial -->
+    <string name="tutorial_step_counter">Step %1$d of %2$d</string>
+    <string name="tutorial_prompt_tap_blocked">Tap the blue tile</string>
+    <string name="tutorial_prompt_match">Match the blue tiles</string>
+    <string name="tutorial_next">Next</string>
+    <string name="tutorial_start">Start</string>
+    <string name="tutorial_lets_go">Let\'s go</string>
+    <string name="tutorial_welcome_title">Welcome to Mahjong Solitaire</string>
+    <string name="tutorial_welcome_message">Your goal is to clear the board by removing all tiles in matching pairs. This short tutorial shows you how it works.</string>
+    <string name="tutorial_free_title">Selectable Tiles</string>
+    <string name="tutorial_free_message">You can only pick a tile that is free: no other tile may lie on top of it, and its left or right side must be open. The blue tiles are free right now.</string>
+    <string name="tutorial_blocked_title">Blocked Tiles</string>
+    <string name="tutorial_blocked_message">The blue tile has neighbours on both its left and its right side, so it is blocked. Tap it and see what happens.</string>
+    <string name="tutorial_pair_title">Match a Pair</string>
+    <string name="tutorial_pair_message">Blocked tiles can\'t be selected. Now tap the two blue tiles. The first one turns gold to show it is selected. They are identical, so together they form a pair and are removed.</string>
+    <string name="tutorial_seasons_title">Seasons</string>
+    <string name="tutorial_seasons_message">Removing the pair opened up its neighbours. These are Season tiles (Spring, Summer, Autumn and Winter). Any two Seasons match each other, even though they look different. Match them!</string>
+    <string name="tutorial_flowers_title">Flowers</string>
+    <string name="tutorial_flowers_message">These two Flower tiles lie on top of other tiles, which stay blocked until the Flowers are gone. Any two Flowers (Plum, Orchid, Chrysanthemum and Bamboo) match each other, just like the Seasons.</string>
+    <string name="tutorial_settings_title">Helpful Settings</string>
+    <string name="tutorial_settings_message">Want a little help? You can turn these on right here, or change them any time in the Settings menu.</string>
+    <string name="tutorial_your_turn_title">Your Turn</string>
+    <string name="tutorial_your_turn_message">Clear the remaining tiles on your own. Stuck? The lightbulb shows a hint and the arrow undoes your last move.</string>
+
+    <!-- Board accessibility -->
+    <string name="board_description">Mahjong board</string>
+    <string name="tile_free">%1$s, free</string>
+    <string name="tile_blocked">%1$s, blocked</string>
+    <string name="tile_hinted">%1$s, hint</string>
+    <string name="tile_characters">%1$d of Characters</string>
+    <string name="tile_bamboo">%1$d of Bamboo</string>
+    <string name="tile_circles">%1$d of Circles</string>
+    <string name="tile_wind_east">East Wind</string>
+    <string name="tile_wind_south">South Wind</string>
+    <string name="tile_wind_west">West Wind</string>
+    <string name="tile_wind_north">North Wind</string>
+    <string name="tile_dragon_red">Red Dragon</string>
+    <string name="tile_dragon_green">Green Dragon</string>
+    <string name="tile_dragon_white">White Dragon</string>
+    <string name="tile_season_spring">Spring (Season)</string>
+    <string name="tile_season_summer">Summer (Season)</string>
+    <string name="tile_season_autumn">Autumn (Season)</string>
+    <string name="tile_season_winter">Winter (Season)</string>
+    <string name="tile_flower_plum">Plum (Flower)</string>
+    <string name="tile_flower_orchid">Orchid (Flower)</string>
+    <string name="tile_flower_chrysanthemum">Chrysanthemum (Flower)</string>
+    <string name="tile_flower_bamboo">Bamboo (Flower)</string>
 </resources>

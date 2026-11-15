@@ -4,6 +4,7 @@ import com.vortessence.mahjong.data.model.BoardTile
 import com.vortessence.mahjong.data.model.Constellation
 import com.vortessence.mahjong.data.model.Tile
 import com.vortessence.mahjong.data.model.TilePosition
+import java.util.BitSet
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -81,60 +82,81 @@ object BoardSolvabilityGenerator {
     }
 
     /**
-     * Exhaustively checks whether [tiles] can be cleared completely.
+     * Exhaustively checks whether [tiles] can be cleared completely. Works for boards of any size.
      * Returns null if no verdict was reached within [maxStates] explored board states.
+     *
+     * Finding a solution is usually quick, even on full boards. Proving that none exists can take
+     * far longer, so on big boards a dead end typically comes back as null rather than false.
      */
     fun canBeCleared(tiles: List<Pair<TilePosition, Tile>>, maxStates: Int = 20_000): Boolean? {
         val n = tiles.size
         if (n == 0) return true
-        if (n >= Long.SIZE_BITS) return null
+        if (n % 2 != 0) return false
 
-        // Precompute blocking relations as bitmasks of tile indices
-        val above = LongArray(n)
-        val left = LongArray(n)
-        val right = LongArray(n)
+        // Precompute blocking relations as bit sets of tile indices
+        val above = Array(n) { BitSet(n) }
+        val left = Array(n) { BitSet(n) }
+        val right = Array(n) { BitSet(n) }
+        // How many other tiles each tile holds down; removing those first tends to find solutions fast
+        val blocksCount = IntArray(n)
         for (i in 0 until n) {
+            val a = tiles[i].first
             for (j in 0 until n) {
                 if (i == j) continue
-                val a = tiles[i].first
                 val b = listOf(tiles[j].first)
-                val bit = 1L shl j
-                if (isCovered(a, b)) above[i] = above[i] or bit
-                if (isBlockedLeft(a, b)) left[i] = left[i] or bit
-                if (isBlockedRight(a, b)) right[i] = right[i] or bit
+                if (isCovered(a, b)) above[i].set(j)
+                if (isBlockedLeft(a, b)) left[i].set(j)
+                if (isBlockedRight(a, b)) right[i].set(j)
+            }
+        }
+        for (i in 0 until n) {
+            for (j in 0 until n) {
+                if (above[j][i] || left[j][i] || right[j][i]) blocksCount[i]++
             }
         }
 
-        val deadEnds = HashSet<Long>()
+        val deadEnds = HashSet<BitSet>()
         var explored = 0
 
-        fun search(mask: Long): Boolean? {
-            if (mask == 0L) return true
+        fun search(mask: BitSet): Boolean? {
+            if (mask.isEmpty) return true
             if (mask in deadEnds) return false
             if (++explored > maxStates) return null
 
-            val free = (0 until n).filter { i ->
-                mask and (1L shl i) != 0L &&
-                    mask and above[i] == 0L &&
-                    (mask and left[i] == 0L || mask and right[i] == 0L)
+            val free = ArrayList<Int>()
+            var i = mask.nextSetBit(0)
+            while (i >= 0) {
+                if (!above[i].intersects(mask) && (!left[i].intersects(mask) || !right[i].intersects(mask))) {
+                    free.add(i)
+                }
+                i = mask.nextSetBit(i + 1)
             }
+
+            val pairs = ArrayList<IntArray>()
             for (x in free.indices) {
                 for (y in (x + 1) until free.size) {
-                    val i = free[x]
-                    val j = free[y]
-                    if (!tiles[i].second.matches(tiles[j].second)) continue
-                    when (search(mask and ((1L shl i) or (1L shl j)).inv())) {
-                        true -> return true
-                        null -> return null
-                        false -> {}
+                    if (tiles[free[x]].second.matches(tiles[free[y]].second)) {
+                        pairs.add(intArrayOf(free[x], free[y]))
                     }
+                }
+            }
+            pairs.sortByDescending { blocksCount[it[0]] + blocksCount[it[1]] }
+
+            for (pair in pairs) {
+                val next = mask.clone() as BitSet
+                next.clear(pair[0])
+                next.clear(pair[1])
+                when (search(next)) {
+                    true -> return true
+                    null -> return null
+                    false -> {}
                 }
             }
             deadEnds.add(mask)
             return false
         }
 
-        return search((1L shl n) - 1)
+        return search(BitSet(n).apply { set(0, n) })
     }
 
     /**

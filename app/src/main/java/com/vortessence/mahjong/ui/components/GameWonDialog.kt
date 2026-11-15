@@ -24,10 +24,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.GameState
 import com.vortessence.mahjong.data.repository.ConstellationRepository
 import com.vortessence.mahjong.ui.theme.GoldAccent
@@ -35,6 +37,7 @@ import com.vortessence.mahjong.ui.theme.GoldAccent
 @Composable
 fun GameWonDialog(
     gameState: GameState,
+    timerSeconds: Long,
     levelIndex: Int?,
     hasNextLevel: Boolean,
     onPlayAgain: () -> Unit,
@@ -42,6 +45,7 @@ fun GameWonDialog(
     onChooseConstellation: () -> Unit,
     onMainMenu: () -> Unit,
 ) {
+    val isTutorial = gameState.constellation.id == ConstellationRepository.TUTORIAL_ID
     Dialog(onDismissRequest = {}) {
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -77,7 +81,9 @@ fun GameWonDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = if (gameState.constellation.id == ConstellationRepository.TUTORIAL_ID) "Tutorial Complete" else "Constellation Complete",
+                    text = stringResource(
+                        if (isTutorial) R.string.won_tutorial_complete else R.string.won_constellation_complete
+                    ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -87,7 +93,11 @@ fun GameWonDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = if (levelIndex != null) "Level $levelIndex • ${gameState.constellation.name}" else gameState.constellation.name,
+                    text = if (levelIndex != null) {
+                        stringResource(R.string.level_subtitle, levelIndex, gameState.constellation.name)
+                    } else {
+                        gameState.constellation.name
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
@@ -104,23 +114,26 @@ fun GameWonDialog(
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         .padding(12.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "Time",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = formatTime(gameState.timerSeconds),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                    // The tutorial has no clock
+                    if (!isTutorial) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = stringResource(R.string.stat_time),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = formatTime(timerSeconds),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Moves",
+                            text = stringResource(R.string.stat_moves),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -134,17 +147,36 @@ fun GameWonDialog(
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Difficulty",
+                            text = stringResource(R.string.stat_difficulty),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = gameState.constellation.difficulty.displayName,
+                            text = stringResource(gameState.constellation.difficulty.labelRes),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                }
+
+                if (!isTutorial) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (gameState.isAssisted) {
+                            stringResource(
+                                R.string.won_assists,
+                                gameState.hintsUsed,
+                                gameState.undosUsed,
+                                gameState.reshufflesUsed
+                            )
+                        } else {
+                            stringResource(R.string.won_no_assists)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (gameState.isAssisted) MaterialTheme.colorScheme.onSurfaceVariant else GoldAccent,
+                        textAlign = TextAlign.Center
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -158,7 +190,7 @@ fun GameWonDialog(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Next Level", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.won_next_level), fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -171,7 +203,7 @@ fun GameWonDialog(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Play Again", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.won_play_again), fontWeight = FontWeight.SemiBold)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -180,7 +212,7 @@ fun GameWonDialog(
                     onClick = onChooseConstellation,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Choose Constellation")
+                    Text(stringResource(R.string.menu_choose_constellation))
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -189,7 +221,7 @@ fun GameWonDialog(
                     onClick = onMainMenu,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Main Menu")
+                    Text(stringResource(R.string.won_main_menu))
                 }
             }
         }

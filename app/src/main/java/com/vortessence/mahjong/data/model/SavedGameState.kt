@@ -2,34 +2,56 @@ package com.vortessence.mahjong.data.model
 
 import com.vortessence.mahjong.data.repository.ConstellationRepository
 import com.vortessence.mahjong.engine.MahjongGameEngine
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class SavedTile(
     val id: Int,
-    val suit: TileSuit,
+    val suit: String,
     val value: Int,
-    val position: TilePosition,
+    val x: Float,
+    val y: Float,
+    val z: Int,
     val isRemoved: Boolean,
-)
+) {
+    val position: TilePosition get() = TilePosition(x, y, z)
+}
 
+/**
+ * What the main menu shows about the game that can be continued.
+ */
 data class ContinueInfo(
-    val title: String,
-    val subtitle: String,
+    val levelIndex: Int?,
+    val constellationName: String,
+    val remainingTiles: Int,
 )
 
+/**
+ * Persisted snapshot of a game in progress.
+ *
+ * Stored as JSON with a [version] field. New fields must get a default value so older saves keep
+ * loading; unknown fields from newer saves are ignored.
+ */
+@Serializable
 data class SavedGameState(
+    val version: Int = CURRENT_VERSION,
     val constellationId: String,
     val levelIndex: Int?,
     val timerSeconds: Long,
     val movesCount: Int,
     val tiles: List<SavedTile>,
     val moveHistory: List<Move>,
+    val hintsUsed: Int = 0,
+    val undosUsed: Int = 0,
+    val reshufflesUsed: Int = 0,
 ) {
     fun toGameState(): GameState {
         val constellation = ConstellationRepository.getById(constellationId)
         val boardTiles = tiles.map { st ->
             BoardTile(
                 id = st.id,
-                tile = Tile(st.suit, st.value),
+                tile = Tile(TileSuit.valueOf(st.suit), st.value),
                 position = st.position,
                 isRemoved = st.isRemoved,
                 isFree = false,
@@ -47,56 +69,75 @@ data class SavedGameState(
             selectedTileId = null,
             hintPair = null,
             moveHistory = moveHistory,
-            timerSeconds = timerSeconds,
             movesCount = movesCount,
             isPlaying = true,
             isWon = isWon,
             isStalemate = isStalemate,
-            availablePairsCount = availablePairs.size,
+            availablePairsCount = MahjongGameEngine.countRemovablePairs(tilesWithFreedom),
             blockedTileId = null,
+            hintsUsed = hintsUsed,
+            undosUsed = undosUsed,
+            reshufflesUsed = reshufflesUsed,
         )
     }
 
-    fun serialize(): String {
-        val levelStr = levelIndex?.toString() ?: ""
-        val tilesStr = tiles.joinToString(";") { t ->
-            "${t.id},${t.suit.name},${t.value},${t.position.x},${t.position.y},${t.position.z},${if (t.isRemoved) 1 else 0}"
-        }
-        val movesStr = moveHistory.joinToString(";") { m ->
-            "${m.tileId1},${m.tileId2}"
-        }
-        return listOf(
-            constellationId,
-            levelStr,
-            timerSeconds.toString(),
-            movesCount.toString(),
-            tilesStr,
-            movesStr,
-        ).joinToString("|")
-    }
+    fun serialize(): String = json.encodeToString(serializer(), this)
 
     companion object {
-        fun fromGameState(state: GameState, levelIndex: Int?): SavedGameState {
+        const val CURRENT_VERSION = 2
+
+        private val json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
+
+        fun fromGameState(state: GameState, levelIndex: Int?, timerSeconds: Long): SavedGameState {
             return SavedGameState(
                 constellationId = state.constellation.id,
                 levelIndex = levelIndex,
-                timerSeconds = state.timerSeconds,
+                timerSeconds = timerSeconds,
                 movesCount = state.movesCount,
                 tiles = state.tiles.map { bt ->
                     SavedTile(
                         id = bt.id,
-                        suit = bt.tile.suit,
+                        suit = bt.tile.suit.name,
                         value = bt.tile.value,
-                        position = bt.position,
+                        x = bt.position.x,
+                        y = bt.position.y,
+                        z = bt.position.z,
                         isRemoved = bt.isRemoved,
                     )
                 },
                 moveHistory = state.moveHistory,
+                hintsUsed = state.hintsUsed,
+                undosUsed = state.undosUsed,
+                reshufflesUsed = state.reshufflesUsed,
             )
         }
 
         fun deserialize(raw: String): SavedGameState? {
             if (raw.isBlank()) return null
+            val saved = if (raw.trimStart().startsWith("{")) {
+                try {
+                    json.decodeFromString(serializer(), raw)
+                } catch (_: Exception) {
+                    null
+                }
+            } else {
+                deserializeLegacy(raw)
+            }
+            return saved?.takeIf { isValid(it) }
+        }
+
+        private fun isValid(saved: SavedGameState): Boolean =
+            saved.constellationId.isNotBlank() &&
+                saved.tiles.isNotEmpty() &&
+                saved.tiles.all { t -> TileSuit.entries.any { it.name == t.suit } }
+
+        /**
+         * Reads the pipe-separated format written by version 1 (app 1.2.4 and earlier).
+         */
+        private fun deserializeLegacy(raw: String): SavedGameState? {
             try {
                 val parts = raw.split("|")
                 if (parts.size < 6) return null
@@ -113,17 +154,14 @@ data class SavedGameState(
                     val tParts = tStr.split(",")
                     if (tParts.size >= 7) {
                         val id = tParts[0].toIntOrNull() ?: return@mapNotNull null
-                        val suit = try {
-                            TileSuit.valueOf(tParts[1])
-                        } catch (_: Exception) {
-                            return@mapNotNull null
-                        }
+                        val suit = tParts[1].takeIf { name -> TileSuit.entries.any { it.name == name } }
+                            ?: return@mapNotNull null
                         val value = tParts[2].toIntOrNull() ?: return@mapNotNull null
                         val x = tParts[3].toFloatOrNull() ?: return@mapNotNull null
                         val y = tParts[4].toFloatOrNull() ?: return@mapNotNull null
                         val z = tParts[5].toIntOrNull() ?: return@mapNotNull null
                         val isRemoved = tParts[6] == "1"
-                        SavedTile(id, suit, value, TilePosition(x, y, z), isRemoved)
+                        SavedTile(id, suit, value, x, y, z, isRemoved)
                     } else {
                         null
                     }
@@ -147,6 +185,7 @@ data class SavedGameState(
                 }
 
                 return SavedGameState(
+                    version = 1,
                     constellationId = constellationId,
                     levelIndex = levelIndex,
                     timerSeconds = timerSeconds,

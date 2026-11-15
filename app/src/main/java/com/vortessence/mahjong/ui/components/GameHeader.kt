@@ -24,14 +24,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.GameState
+import com.vortessence.mahjong.data.repository.ConstellationRepository
 import java.util.Locale
 
 @Composable
 fun GameHeader(
     gameState: GameState,
+    // Read lazily so that only the clock recomposes every second
+    timerSeconds: () -> Long,
     levelIndex: Int?,
     onBackClick: () -> Unit,
     onHintClick: () -> Unit,
@@ -64,35 +69,37 @@ fun GameHeader(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
                     Column(modifier = Modifier.padding(start = 4.dp)) {
                         Text(
-                            text = if (levelIndex != null) "Level $levelIndex: ${gameState.constellation.name}" else gameState.constellation.name,
+                            text = if (levelIndex != null) {
+                                stringResource(R.string.level_title, levelIndex, gameState.constellation.name)
+                            } else {
+                                gameState.constellation.name
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = gameState.constellation.difficulty.displayName,
+                                text = stringResource(gameState.constellation.difficulty.labelRes),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            Text(
-                                text = " • ",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = formatTime(gameState.timerSeconds),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            // The tutorial is untimed
+                            if (gameState.constellation.id != ConstellationRepository.TUTORIAL_ID) {
+                                Text(
+                                    text = " • ",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                TimerText(timerSeconds)
+                            }
                         }
                     }
                 }
@@ -105,7 +112,7 @@ fun GameHeader(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Lightbulb,
-                            contentDescription = "Hint",
+                            contentDescription = stringResource(R.string.hint),
                             tint = if (canHint) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                         )
                     }
@@ -116,7 +123,7 @@ fun GameHeader(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Undo,
-                            contentDescription = "Undo",
+                            contentDescription = stringResource(R.string.undo),
                             tint = if (canUndo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                         )
                     }
@@ -124,7 +131,7 @@ fun GameHeader(
                     IconButton(onClick = onRestartClick) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Restart",
+                            contentDescription = stringResource(R.string.restart),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -143,12 +150,16 @@ fun GameHeader(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Tiles: ",
+                        text = stringResource(R.string.header_tiles),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${gameState.remainingTilesCount} / ${gameState.totalTilesCount}",
+                        text = stringResource(
+                            R.string.header_tiles_count,
+                            gameState.remainingTilesCount,
+                            gameState.totalTilesCount
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -169,9 +180,9 @@ fun GameHeader(
                 ) {
                     Text(
                         text = if (gameState.availablePairsCount > 0)
-                            "Pairs: ${gameState.availablePairsCount}"
+                            stringResource(R.string.header_pairs, gameState.availablePairsCount)
                         else
-                            "No moves",
+                            stringResource(R.string.header_no_moves),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (gameState.availablePairsCount > 0)
@@ -183,6 +194,16 @@ fun GameHeader(
             }
         }
     }
+}
+
+@Composable
+private fun TimerText(timerSeconds: () -> Long) {
+    Text(
+        text = formatTime(timerSeconds()),
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 fun formatTime(seconds: Long): String {

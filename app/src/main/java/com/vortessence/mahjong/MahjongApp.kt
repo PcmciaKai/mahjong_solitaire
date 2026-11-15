@@ -23,6 +23,8 @@ fun MahjongApp(viewModel: MahjongViewModel) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val continueInfo by viewModel.continueInfo.collectAsStateWithLifecycle()
     val tutorialStep by viewModel.tutorialStep.collectAsStateWithLifecycle()
+    // Not delegated: it is only read inside the game header, so ticks don't recompose the app
+    val timerSeconds = viewModel.timerSeconds.collectAsStateWithLifecycle()
 
     MahjongTheme(tableSurface = settings.tableSurface) {
         Crossfade(targetState = currentScreen, label = "ScreenTransition") { screen ->
@@ -41,6 +43,7 @@ fun MahjongApp(viewModel: MahjongViewModel) {
                 is Screen.LevelSelect -> {
                     LevelSelectScreen(
                         stats = stats,
+                        isTablet = viewModel.isTablet,
                         levels = viewModel.currentLevelConstellations,
                         onLevelSelected = { level -> viewModel.startLevel(level) },
                         onBack = { viewModel.navigateTo(Screen.MainMenu) },
@@ -58,6 +61,7 @@ fun MahjongApp(viewModel: MahjongViewModel) {
                 is Screen.Game -> {
                     GameScreen(
                         gameState = gameState,
+                        timerSeconds = { timerSeconds.value },
                         levelIndex = levelIndex,
                         settings = settings,
                         tutorialStep = tutorialStep,
@@ -69,6 +73,7 @@ fun MahjongApp(viewModel: MahjongViewModel) {
                         onUndo = { viewModel.undo() },
                         onRestart = { viewModel.restartGame() },
                         onReshuffle = { viewModel.reshuffle() },
+                        onUndoToWinnable = { viewModel.undoToWinnable() },
                         onNextLevel = { viewModel.playNextLevel() },
                         onChooseConstellation = { viewModel.navigateTo(Screen.ConstellationSelect) },
                         onMainMenu = { viewModel.navigateTo(Screen.MainMenu) },
@@ -88,6 +93,7 @@ fun MahjongApp(viewModel: MahjongViewModel) {
                 is Screen.Stats -> {
                     StatsScreen(
                         stats = stats,
+                        isTablet = viewModel.isTablet,
                         onBack = { viewModel.navigateTo(Screen.MainMenu) },
                     )
                 }

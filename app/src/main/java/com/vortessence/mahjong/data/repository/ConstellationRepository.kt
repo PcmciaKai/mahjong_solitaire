@@ -90,6 +90,12 @@ object ConstellationRepository {
 
     fun getTotalLevels(isTablet: Boolean = false): Int = getLevelConstellations(isTablet).size
 
+    /**
+     * Whether [constellationId] is a level of the tablet level set (as opposed to the phone set).
+     */
+    fun isTabletLevel(constellationId: String): Boolean =
+        tabletLevelConstellations.any { it.id == constellationId }
+
     // =========================================================================
     // TUTORIAL (Level 0)
     // =========================================================================

@@ -15,17 +15,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.vortessence.mahjong.R
 
 @Composable
 fun StalemateDialog(
     canUndo: Boolean,
     hasFreePairs: Boolean,
     onReshuffle: () -> Unit,
-    onUndo: () -> Unit,
+    // Takes back as many moves as needed, a single undo rarely escapes a dead end
+    onUndoToWinnable: () -> Unit,
     onRestart: () -> Unit,
 ) {
     Dialog(onDismissRequest = {}) {
@@ -46,7 +49,9 @@ fun StalemateDialog(
                     .padding(24.dp)
             ) {
                 Text(
-                    text = "No Available Moves",
+                    text = stringResource(
+                        if (hasFreePairs) R.string.stalemate_title_dead_end else R.string.stalemate_title
+                    ),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -56,11 +61,9 @@ fun StalemateDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = if (hasFreePairs) {
-                        "The remaining tiles can no longer be cleared. You can reshuffle the remaining tiles, undo the last move, or restart."
-                    } else {
-                        "There are no matching pairs left among the free tiles. You can reshuffle the remaining tiles, undo the last move, or restart."
-                    },
+                    text = stringResource(
+                        if (hasFreePairs) R.string.stalemate_message_dead_end else R.string.stalemate_message_no_pairs
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -72,16 +75,16 @@ fun StalemateDialog(
                     onClick = onReshuffle,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Reshuffle Tiles", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.stalemate_reshuffle), fontWeight = FontWeight.Bold)
                 }
 
                 if (canUndo) {
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
-                        onClick = onUndo,
+                        onClick = onUndoToWinnable,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Undo Last Move")
+                        Text(stringResource(R.string.stalemate_undo_to_winnable))
                     }
                 }
 
@@ -90,7 +93,7 @@ fun StalemateDialog(
                     onClick = onRestart,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Restart Constellation")
+                    Text(stringResource(R.string.stalemate_restart))
                 }
             }
         }

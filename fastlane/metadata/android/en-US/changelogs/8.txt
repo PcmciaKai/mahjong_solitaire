@@ -1,0 +1,8 @@
+- Pinch to zoom and pan the board
+- Dead ends are detected sooner, with an option to go back to the last winnable position
+- Smarter hints that avoid dead ends; tap again for another pair
+- Restarting a game in progress now asks for confirmation
+- Fairer statistics: restarts and the tutorial no longer count as games played, and assisted best times are marked
+- The timer pauses while the "no moves" dialog is shown
+- Screen reader support for the board
+- Performance improvements

@@ -18,8 +18,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.GameSettings
 import com.vortessence.mahjong.engine.TutorialAction
 import com.vortessence.mahjong.engine.TutorialScript
@@ -51,12 +53,16 @@ fun TutorialCard(
                     .padding(20.dp)
             ) {
                 Text(
-                    text = "Step ${TutorialScript.steps.indexOf(current) + 1} of ${TutorialScript.steps.size}",
+                    text = stringResource(
+                        R.string.tutorial_step_counter,
+                        TutorialScript.steps.indexOf(current) + 1,
+                        TutorialScript.steps.size
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = current.title,
+                    text = stringResource(current.titleRes),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -65,7 +71,7 @@ fun TutorialCard(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = current.message,
+                    text = stringResource(current.messageRes),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -73,12 +79,12 @@ fun TutorialCard(
                 if (current.showSettingsToggles) {
                     Spacer(modifier = Modifier.height(12.dp))
                     SettingToggle(
-                        title = "Highlight Selectable Tiles",
+                        title = stringResource(R.string.settings_highlight_free),
                         checked = settings.highlightFreeTiles,
                         onCheckedChange = { onSettingsChanged(settings.copy(highlightFreeTiles = it)) }
                     )
                     SettingToggle(
-                        title = "Draw Corner Index",
+                        title = stringResource(R.string.settings_corner_index),
                         checked = settings.showCornerIndex,
                         onCheckedChange = { onSettingsChanged(settings.copy(showCornerIndex = it)) }
                     )
@@ -91,15 +97,17 @@ fun TutorialCard(
                         onClick = onContinue,
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        Text(current.continueLabel, fontWeight = FontWeight.Bold)
+                        Text(stringResource(current.continueLabelRes), fontWeight = FontWeight.Bold)
                     }
                 } else {
                     Text(
-                        text = if (current.action == TutorialAction.TAP_BLOCKED) {
-                            "Tap the blue tile"
-                        } else {
-                            "Match the blue tiles"
-                        },
+                        text = stringResource(
+                            if (current.action == TutorialAction.TAP_BLOCKED) {
+                                R.string.tutorial_prompt_tap_blocked
+                            } else {
+                                R.string.tutorial_prompt_match
+                            }
+                        ),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.secondary,

@@ -38,8 +38,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.Constellation
 import com.vortessence.mahjong.data.model.GameStats
 import com.vortessence.mahjong.data.repository.ConstellationRepository
@@ -50,6 +53,7 @@ import com.vortessence.mahjong.ui.theme.GoldAccent
 @Composable
 fun LevelSelectScreen(
     stats: GameStats,
+    isTablet: Boolean = false,
     levels: List<Constellation> = ConstellationRepository.levelConstellations,
     tutorial: Constellation = ConstellationRepository.tutorialConstellation,
     onLevelSelected: (Int) -> Unit,
@@ -59,14 +63,14 @@ fun LevelSelectScreen(
         onBack()
     }
 
-    val highestUnlocked = stats.highestLevelReached.coerceAtLeast(1)
+    val highestUnlocked = stats.highestLevel(isTablet).coerceAtLeast(1)
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Levels Progression",
+                        text = stringResource(R.string.levels_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -75,7 +79,7 @@ fun LevelSelectScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -99,12 +103,14 @@ fun LevelSelectScreen(
                 LevelCard(
                     levelIndex = ConstellationRepository.TUTORIAL_LEVEL,
                     name = tutorial.name,
-                    difficultyName = tutorial.difficulty.displayName,
+                    difficultyName = stringResource(tutorial.difficulty.labelRes),
                     stars = tutorial.difficulty.stars,
                     tileCount = tutorial.tileCount,
                     isUnlocked = true,
                     isCompleted = stats.completedConstellations.contains(tutorial.id),
-                    bestTime = stats.bestTimes[tutorial.id],
+                    // The tutorial is untimed
+                    bestTime = null,
+                    isBestTimeAssisted = false,
                     onClick = { onLevelSelected(ConstellationRepository.TUTORIAL_LEVEL) }
                 )
             }
@@ -118,12 +124,13 @@ fun LevelSelectScreen(
                 LevelCard(
                     levelIndex = levelIndex,
                     name = constellation.name,
-                    difficultyName = constellation.difficulty.displayName,
+                    difficultyName = stringResource(constellation.difficulty.labelRes),
                     stars = constellation.difficulty.stars,
                     tileCount = constellation.tileCount,
                     isUnlocked = isUnlocked,
                     isCompleted = isCompleted,
                     bestTime = bestTime,
+                    isBestTimeAssisted = constellation.id in stats.assistedBestTimes,
                     onClick = {
                         if (isUnlocked) {
                             onLevelSelected(levelIndex)
@@ -145,6 +152,7 @@ private fun LevelCard(
     isUnlocked: Boolean,
     isCompleted: Boolean,
     bestTime: Long?,
+    isBestTimeAssisted: Boolean,
     onClick: () -> Unit
 ) {
     val containerColor = if (isUnlocked) {
@@ -184,13 +192,13 @@ private fun LevelCard(
                 if (isCompleted) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = "Completed",
+                        contentDescription = stringResource(R.string.completed),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 } else if (!isUnlocked) {
                     Icon(
                         imageVector = Icons.Default.Lock,
-                        contentDescription = "Locked",
+                        contentDescription = stringResource(R.string.locked),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 } else {
@@ -208,7 +216,7 @@ private fun LevelCard(
             // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Level $levelIndex: $name",
+                    text = stringResource(R.string.level_title, levelIndex, name),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -227,7 +235,11 @@ private fun LevelCard(
                     }
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "$difficultyName • $tileCount tiles",
+                        text = stringResource(
+                            R.string.details_separator,
+                            difficultyName,
+                            pluralStringResource(R.plurals.tile_count, tileCount, tileCount)
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -236,7 +248,10 @@ private fun LevelCard(
                 if (bestTime != null) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Best: ${formatTime(bestTime)}",
+                        text = stringResource(
+                            if (isBestTimeAssisted) R.string.best_time_assisted else R.string.best_time,
+                            formatTime(bestTime)
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary

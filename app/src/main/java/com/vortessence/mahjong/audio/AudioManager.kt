@@ -12,7 +12,7 @@ import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.GameSettings
 import kotlin.random.Random
 
-class AudioManager(private val context: Context) {
+class AudioManager(private val context: Context) : GameSounds {
 
     private val musicPlayer = BackgroundMusicPlayer(context.applicationContext)
     private var currentSettings: GameSettings? = null
@@ -54,7 +54,7 @@ class AudioManager(private val context: Context) {
         }
     }
 
-    fun updateSettings(settings: GameSettings) {
+    override fun updateSettings(settings: GameSettings) {
         val previousSettings = currentSettings
         currentSettings = settings
 
@@ -77,7 +77,7 @@ class AudioManager(private val context: Context) {
         }
     }
 
-    fun onResume() {
+    override fun onResume() {
         isInForeground = true
         // Do not play any music until settings have actually been checked and loaded
         val settings = currentSettings ?: return
@@ -86,12 +86,12 @@ class AudioManager(private val context: Context) {
         }
     }
 
-    fun onPause() {
+    override fun onPause() {
         isInForeground = false
         musicPlayer.pause()
     }
 
-    fun release() {
+    override fun release() {
         musicPlayer.release()
         try {
             soundPool.release()
@@ -100,7 +100,7 @@ class AudioManager(private val context: Context) {
         }
     }
 
-    fun playTileSelect() {
+    override fun playTileSelect() {
         val settings = currentSettings ?: return
         if (settings.soundEnabled) {
             playRandomSound(pickSoundIds, settings.soundVolume)
@@ -108,7 +108,7 @@ class AudioManager(private val context: Context) {
         vibrate { HapticPatterns.select(it) }
     }
 
-    fun playTileDeselect() {
+    override fun playTileDeselect() {
         val settings = currentSettings ?: return
         if (settings.soundEnabled) {
             playRandomSound(pickSoundIds, settings.soundVolume)
@@ -116,7 +116,7 @@ class AudioManager(private val context: Context) {
         vibrate { HapticPatterns.deselect(it) }
     }
 
-    fun playTileMatch() {
+    override fun playTileMatch() {
         val settings = currentSettings ?: return
         if (settings.soundEnabled) {
             playRandomSound(matchSoundIds, settings.soundVolume)
@@ -131,7 +131,7 @@ class AudioManager(private val context: Context) {
         vibrate { HapticPatterns.match(it, matchStreak) }
     }
 
-    fun playTileBlocked() {
+    override fun playTileBlocked() {
         val settings = currentSettings ?: return
         if (settings.soundEnabled) {
             AudioEffects.playBlocked(settings.soundVolume)
@@ -139,7 +139,7 @@ class AudioManager(private val context: Context) {
         vibrate { HapticPatterns.blocked() }
     }
 
-    fun playWin() {
+    override fun playWin() {
         val settings = currentSettings ?: return
         if (settings.soundEnabled) {
             AudioEffects.playWin(settings.soundVolume)

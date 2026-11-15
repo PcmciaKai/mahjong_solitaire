@@ -1,8 +1,11 @@
 package com.vortessence.mahjong.data.model
 
-enum class TableSurface(val displayName: String) {
-    GREEN_MAT("Green Mat"),
-    WALNUT("Walnut"),
+import androidx.annotation.StringRes
+import com.vortessence.mahjong.R
+
+enum class TableSurface(@param:StringRes val labelRes: Int) {
+    GREEN_MAT(R.string.surface_green_mat),
+    WALNUT(R.string.surface_walnut),
 }
 
 @Suppress("unused")

@@ -1,5 +1,7 @@
 package com.vortessence.mahjong.engine
 
+import androidx.annotation.StringRes
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.GameState
 import com.vortessence.mahjong.data.repository.ConstellationRepository
 
@@ -13,13 +15,13 @@ enum class TutorialAction {
 }
 
 data class TutorialStep(
-    val title: String,
-    val message: String,
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val messageRes: Int,
     val action: TutorialAction = TutorialAction.CONTINUE,
     val targetTileIds: Set<Int> = emptySet(),
     val highlightFreeTiles: Boolean = false,
     val showSettingsToggles: Boolean = false,
-    val continueLabel: String = "Next",
+    @param:StringRes val continueLabelRes: Int = R.string.tutorial_next,
 )
 
 /**
@@ -37,58 +39,48 @@ object TutorialScript {
 
     val steps: List<TutorialStep> = listOf(
         TutorialStep(
-            title = "Welcome to Mahjong Solitaire",
-            message = "Your goal is to clear the board by removing all tiles in matching pairs. " +
-                "This short tutorial shows you how it works.",
-            continueLabel = "Start",
+            titleRes = R.string.tutorial_welcome_title,
+            messageRes = R.string.tutorial_welcome_message,
+            continueLabelRes = R.string.tutorial_start,
         ),
         TutorialStep(
-            title = "Selectable Tiles",
-            message = "You can only pick a tile that is free: no other tile may lie on top of it, " +
-                "and its left or right side must be open. The blue tiles are free right now.",
+            titleRes = R.string.tutorial_free_title,
+            messageRes = R.string.tutorial_free_message,
             highlightFreeTiles = true,
         ),
         TutorialStep(
-            title = "Blocked Tiles",
-            message = "The blue tile has neighbours on both its left and its right side, " +
-                "so it is blocked. Tap it and see what happens.",
+            titleRes = R.string.tutorial_blocked_title,
+            messageRes = R.string.tutorial_blocked_message,
             action = TutorialAction.TAP_BLOCKED,
             targetTileIds = setOf(SPRING),
         ),
         TutorialStep(
-            title = "Match a Pair",
-            message = "Blocked tiles can't be selected. Now tap the two blue tiles. The first one turns " +
-                "gold to show it is selected. They are identical, so together they form a pair and are removed.",
+            titleRes = R.string.tutorial_pair_title,
+            messageRes = R.string.tutorial_pair_message,
             action = TutorialAction.MATCH_PAIR,
             targetTileIds = setOf(TOP_LEFT_BAMBOO, TOP_RIGHT_BAMBOO),
         ),
         TutorialStep(
-            title = "Seasons",
-            message = "Removing the pair opened up its neighbours. These are Season tiles " +
-                "(Spring, Summer, Autumn and Winter). Any two Seasons match each other, " +
-                "even though they look different. Match them!",
+            titleRes = R.string.tutorial_seasons_title,
+            messageRes = R.string.tutorial_seasons_message,
             action = TutorialAction.MATCH_PAIR,
             targetTileIds = setOf(SPRING, AUTUMN),
         ),
         TutorialStep(
-            title = "Flowers",
-            message = "These two Flower tiles lie on top of other tiles, which stay blocked until the " +
-                "Flowers are gone. Any two Flowers (Plum, Orchid, Chrysanthemum and Bamboo) " +
-                "match each other, just like the Seasons.",
+            titleRes = R.string.tutorial_flowers_title,
+            messageRes = R.string.tutorial_flowers_message,
             action = TutorialAction.MATCH_PAIR,
             targetTileIds = setOf(PLUM, CHRYSANTHEMUM),
         ),
         TutorialStep(
-            title = "Helpful Settings",
-            message = "Want a little help? You can turn these on right here, " +
-                "or change them any time in the Settings menu.",
+            titleRes = R.string.tutorial_settings_title,
+            messageRes = R.string.tutorial_settings_message,
             showSettingsToggles = true,
         ),
         TutorialStep(
-            title = "Your Turn",
-            message = "Clear the remaining tiles on your own. Stuck? The lightbulb shows a hint " +
-                "and the arrow undoes your last move.",
-            continueLabel = "Let's go",
+            titleRes = R.string.tutorial_your_turn_title,
+            messageRes = R.string.tutorial_your_turn_message,
+            continueLabelRes = R.string.tutorial_lets_go,
         ),
     )
 

@@ -27,8 +27,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.GameStats
 import com.vortessence.mahjong.data.repository.ConstellationRepository
 import com.vortessence.mahjong.ui.components.formatTime
@@ -37,6 +39,7 @@ import com.vortessence.mahjong.ui.components.formatTime
 @Composable
 fun StatsScreen(
     stats: GameStats,
+    isTablet: Boolean = false,
     onBack: () -> Unit,
 ) {
     BackHandler {
@@ -52,7 +55,7 @@ fun StatsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Statistics",
+                        text = stringResource(R.string.stats_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -61,7 +64,7 @@ fun StatsScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -86,12 +89,12 @@ fun StatsScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 StatCard(
-                    title = "Played",
+                    title = stringResource(R.string.stats_played),
                     value = stats.gamesPlayed.toString(),
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
-                    title = "Completed",
+                    title = stringResource(R.string.stats_completed),
                     value = stats.gamesCompleted.toString(),
                     modifier = Modifier.weight(1f)
                 )
@@ -102,13 +105,13 @@ fun StatsScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 StatCard(
-                    title = "Win Rate",
-                    value = "$winRatePercent%",
+                    title = stringResource(R.string.stats_win_rate),
+                    value = stringResource(R.string.stats_win_rate_value, winRatePercent),
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
-                    title = "Highest Level",
-                    value = stats.highestLevelReached.toString(),
+                    title = stringResource(R.string.stats_highest_level),
+                    value = stats.highestLevel(isTablet).toString(),
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -117,20 +120,25 @@ fun StatsScreen(
 
             // Best Times Section
             Text(
-                text = "Best Times",
+                text = stringResource(R.string.stats_best_times),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
 
-            if (stats.completedConstellations.isEmpty()) {
+            // The tutorial is untimed, so it never has a best time worth listing
+            val timedConstellations = ConstellationRepository.constellations.filter {
+                it.id != ConstellationRepository.TUTORIAL_ID && stats.bestTimes.containsKey(it.id)
+            }
+
+            if (timedConstellations.isEmpty()) {
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Complete your first constellation to see your best times here!",
+                        text = stringResource(R.string.stats_best_times_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(20.dp)
@@ -141,11 +149,7 @@ fun StatsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val completedItems = ConstellationRepository.constellations.filter {
-                        stats.completedConstellations.contains(it.id)
-                    }
-
-                    items(completedItems) { constellation ->
+                    items(timedConstellations) { constellation ->
                         val time = stats.bestTimes[constellation.id]
                         Card(
                             shape = RoundedCornerShape(12.dp),
@@ -165,8 +169,17 @@ fun StatsScreen(
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold
                                     )
+                                    val difficulty = stringResource(constellation.difficulty.labelRes)
                                     Text(
-                                        text = constellation.difficulty.displayName,
+                                        text = if (constellation.id in stats.assistedBestTimes) {
+                                            stringResource(
+                                                R.string.details_separator,
+                                                difficulty,
+                                                stringResource(R.string.stats_assisted)
+                                            )
+                                        } else {
+                                            difficulty
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

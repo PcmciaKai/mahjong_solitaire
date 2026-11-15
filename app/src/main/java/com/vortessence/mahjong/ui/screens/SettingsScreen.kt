@@ -39,8 +39,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.GameSettings
 import com.vortessence.mahjong.data.model.TableSurface
 import com.vortessence.mahjong.ui.components.SupportDialog
@@ -67,7 +69,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Settings",
+                        text = stringResource(R.string.settings_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -76,7 +78,7 @@ fun SettingsScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -97,7 +99,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Audio Section
-            SettingsSectionHeader(title = "Sound & Music")
+            SettingsSectionHeader(title = stringResource(R.string.settings_section_audio))
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -112,12 +114,12 @@ fun SettingsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Game Sounds",
+                                text = stringResource(R.string.settings_sounds),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Tile tap, match, and completion sounds",
+                                text = stringResource(R.string.settings_sounds_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -132,7 +134,7 @@ fun SettingsScreen(
                     if (settings.soundEnabled) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Sound Volume: ${(settings.soundVolume * 100).toInt()}%",
+                            text = stringResource(R.string.settings_sound_volume, (settings.soundVolume * 100).toInt()),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -156,12 +158,12 @@ fun SettingsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Background Music",
+                                text = stringResource(R.string.settings_music),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Tranquil Chinese pentatonic melody",
+                                text = stringResource(R.string.settings_music_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -176,7 +178,7 @@ fun SettingsScreen(
                     if (settings.musicEnabled) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Music Volume: ${(settings.musicVolume * 100).toInt()}%",
+                            text = stringResource(R.string.settings_music_volume, (settings.musicVolume * 100).toInt()),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -193,7 +195,7 @@ fun SettingsScreen(
             }
 
             // Gameplay Section
-            SettingsSectionHeader(title = "Gameplay")
+            SettingsSectionHeader(title = stringResource(R.string.settings_section_gameplay))
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -208,12 +210,12 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Highlight Selectable Tiles",
+                                text = stringResource(R.string.settings_highlight_free),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Visually distinguish tiles that can currently be selected",
+                                text = stringResource(R.string.settings_highlight_free_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -234,12 +236,12 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Automatic Board Scaling",
+                                text = stringResource(R.string.settings_auto_zoom),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Dynamically sizes the board to fit all screen sizes",
+                                text = stringResource(R.string.settings_auto_zoom_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -260,12 +262,12 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Vibration & Haptics",
+                                text = stringResource(R.string.settings_vibration),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Gentle physical feedback on tile selection and matches",
+                                text = stringResource(R.string.settings_vibration_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -279,7 +281,7 @@ fun SettingsScreen(
             }
 
             // Appearance / Theme Section
-            SettingsSectionHeader(title = "Appearance")
+            SettingsSectionHeader(title = stringResource(R.string.settings_section_appearance))
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -287,12 +289,12 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Table Surface",
+                        text = stringResource(R.string.settings_table_surface),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Material surface of the playing table",
+                        text = stringResource(R.string.settings_table_surface_summary),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -305,7 +307,7 @@ fun SettingsScreen(
                             FilterChip(
                                 selected = settings.tableSurface == surface,
                                 onClick = { onSettingsChanged(settings.copy(tableSurface = surface)) },
-                                label = { Text(surface.displayName) },
+                                label = { Text(stringResource(surface.labelRes)) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
@@ -326,12 +328,12 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Draw Corner Index",
+                                text = stringResource(R.string.settings_corner_index),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Display corner numbers and letters on tiles for easy reading",
+                                text = stringResource(R.string.settings_corner_index_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -348,7 +350,7 @@ fun SettingsScreen(
                 onClick = { showSupportDialog = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("♥︎ Support this app")
+                Text(stringResource(R.string.settings_support))
             }
         }
     }

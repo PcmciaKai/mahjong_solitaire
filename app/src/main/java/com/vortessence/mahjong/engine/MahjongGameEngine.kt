@@ -20,13 +20,21 @@ object MahjongGameEngine {
     /** Boards up to this size are searched exhaustively for dead ends after every change. */
     private const val DEAD_END_CHECK_MAX_TILES = 20
 
+    /** Solver budget per suggested pair when ranking hints. */
+    private const val HINT_SOLVER_MAX_STATES = 5_000
+
+    /** Solver budget per position when looking for the last winnable position. */
+    private const val WINNABLE_SOLVER_MAX_STATES = 20_000
+
+    /** Solver budget for the background dead-end check on bigger boards. */
+    const val BACKGROUND_DEAD_END_MAX_STATES = 50_000
+
     /**
      * Initializes a new game state with a solvable board layout.
      */
     fun startNewGame(constellation: Constellation): GameState {
         val boardTiles = BoardSolvabilityGenerator.generateSolvableBoard(constellation)
         val tilesWithFreedom = recalculateFreedom(boardTiles)
-        val availablePairs = findAvailablePairs(tilesWithFreedom)
 
         return GameState(
             constellation = constellation,
@@ -34,12 +42,11 @@ object MahjongGameEngine {
             selectedTileId = null,
             hintPair = null,
             moveHistory = emptyList(),
-            timerSeconds = 0L,
             movesCount = 0,
             isPlaying = true,
             isWon = false,
             isStalemate = false,
-            availablePairsCount = availablePairs.size,
+            availablePairsCount = countRemovablePairs(tilesWithFreedom),
             blockedTileId = null,
         )
     }
@@ -114,7 +121,7 @@ object MahjongGameEngine {
                 movesCount = currentState.movesCount + 1,
                 isWon = isWon,
                 isStalemate = isStalemate,
-                availablePairsCount = availablePairs.size
+                availablePairsCount = countRemovablePairs(refreshedTiles)
             )
 
             return updatedState to TileTapResult.Matched(currentSelectedId, tileId, isWon, isStalemate)
@@ -130,9 +137,10 @@ object MahjongGameEngine {
     }
 
     /**
-     * Undoes the most recent matched pair.
+     * Undoes the most recent matched pair. [countAsAssist] is false when the engine takes moves
+     * back on its own (e.g. while reshuffling) rather than the player asking for it.
      */
-    fun undo(currentState: GameState): GameState {
+    fun undo(currentState: GameState, countAsAssist: Boolean = true): GameState {
         if (currentState.moveHistory.isEmpty()) return currentState
 
         val lastMove = currentState.moveHistory.last()
@@ -158,24 +166,94 @@ object MahjongGameEngine {
             movesCount = (currentState.movesCount - 1).coerceAtLeast(0),
             isWon = false,
             isStalemate = isStuck(refreshedTiles, availablePairs),
-            availablePairsCount = availablePairs.size
+            availablePairsCount = countRemovablePairs(refreshedTiles),
+            undosUsed = currentState.undosUsed + if (countAsAssist) 1 else 0,
         )
     }
 
     /**
-     * Finds and marks a hint pair.
+     * Marks a hint pair. Asking again while a hint is shown moves on to the next suggestion.
      */
     fun requestHint(currentState: GameState): GameState {
-        val pairs = findAvailablePairs(currentState.tiles)
-        return if (pairs.isNotEmpty()) {
-            val hint = pairs.first()
-            currentState.copy(
-                hintPair = hint,
-                blockedTileId = null
+        val hints = rankedHints(currentState.tiles)
+        if (hints.isEmpty()) return currentState
+        val currentIndex = hints.indexOf(currentState.hintPair)
+        return currentState.copy(
+            hintPair = hints[(currentIndex + 1) % hints.size],
+            blockedTileId = null,
+            hintsUsed = currentState.hintsUsed + 1,
+        )
+    }
+
+    /**
+     * The available pairs that make the best hints, best first.
+     *
+     * The solver checks which pairs keep the board clearable: pairs with a known solution come
+     * first, pairs that provably lead into a dead end are left out. Ties are broken by how many
+     * tiles a pair frees up.
+     */
+    fun rankedHints(tiles: List<BoardTile>): List<Pair<Int, Int>> {
+        val pairs = findAvailablePairs(tiles)
+        if (pairs.size <= 1) return pairs
+
+        val activeTiles = tiles.filter { !it.isRemoved }
+        val scored = pairs.map { pair ->
+            val remaining = activeTiles.filter { it.id != pair.first && it.id != pair.second }
+            val clearable = BoardSolvabilityGenerator.canBeCleared(
+                remaining.map { it.position to it.tile },
+                maxStates = HINT_SOLVER_MAX_STATES,
             )
-        } else {
-            currentState
+            val safety = when (clearable) {
+                true -> 0
+                null -> 1
+                false -> 2
+            }
+            val positions = remaining.map { it.position }
+            val newlyFreed = remaining.count { !it.isFree && BoardSolvabilityGenerator.isTileFree(it.position, positions) }
+            Triple(pair, safety, newlyFreed)
         }
+        val bestSafety = scored.minOf { it.second }
+        return scored
+            .filter { it.second == bestSafety }
+            .sortedByDescending { it.third }
+            .map { it.first }
+    }
+
+    /**
+     * Takes back moves until the board can be cleared again, i.e. back to the last position from
+     * which the game can still be won. Always takes back at least one move.
+     *
+     * A game can become unwinnable many moves before the dead end shows, so going back a single
+     * move is often not enough.
+     */
+    fun undoToWinnable(currentState: GameState): GameState {
+        if (currentState.moveHistory.isEmpty()) return currentState
+        var state = undo(currentState)
+        while (state.moveHistory.isNotEmpty() && !isClearable(state.tiles, WINNABLE_SOLVER_MAX_STATES)) {
+            state = undo(state)
+        }
+        return state
+    }
+
+    /**
+     * Whether a solution for the remaining [tiles] was found within [maxStates] solver steps.
+     */
+    private fun isClearable(tiles: List<BoardTile>, maxStates: Int): Boolean =
+        BoardSolvabilityGenerator.canBeCleared(
+            tiles.filter { !it.isRemoved }.map { it.position to it.tile },
+            maxStates = maxStates,
+        ) == true
+
+    /**
+     * Whether the board of [state] provably cannot be cleared anymore. Meant for boards too big for
+     * the check that runs after every move, so it is slower and should run in the background.
+     */
+    fun isDeadEnd(state: GameState, maxStates: Int = BACKGROUND_DEAD_END_MAX_STATES): Boolean {
+        if (state.isWon || state.remainingTilesCount == 0) return false
+        return BoardSolvabilityGenerator.canBeCleared(
+            state.tiles.filter { !it.isRemoved }.map { it.position to it.tile },
+            maxStates = maxStates,
+        ) == false
     }
 
     /**
@@ -194,7 +272,7 @@ object MahjongGameEngine {
                 tiles = activeTiles.map { it.tile },
             )
             if (solvable != null || state.moveHistory.isEmpty()) break
-            state = undo(state)
+            state = undo(state, countAsAssist = false)
         }
 
         // Prefer a solvable redistribution; fall back to a plain shuffle if none exists
@@ -226,7 +304,8 @@ object MahjongGameEngine {
             hintPair = null,
             blockedTileId = null,
             isStalemate = isStuck(refreshedTiles, availablePairs),
-            availablePairsCount = availablePairs.size
+            availablePairsCount = countRemovablePairs(refreshedTiles),
+            reshufflesUsed = currentState.reshufflesUsed + 1,
         )
     }
 
@@ -256,6 +335,18 @@ object MahjongGameEngine {
             }
         }
     }
+
+    /**
+     * How many pairs could be removed right now at the same time. Unlike the size of
+     * [findAvailablePairs], four free Seasons count as two pairs, not as six combinations.
+     */
+    fun countRemovablePairs(tiles: List<BoardTile>): Int =
+        tiles.asSequence()
+            .filter { !it.isRemoved && it.isFree }
+            .groupingBy { it.tile.matchKey }
+            .eachCount()
+            .values
+            .sumOf { it / 2 }
 
     /**
      * Finds all currently available matching free tile pairs.

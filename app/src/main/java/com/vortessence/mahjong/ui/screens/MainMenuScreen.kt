@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.ContinueInfo
 import com.vortessence.mahjong.ui.components.tileset.MahjongTiles
 import com.vortessence.mahjong.ui.components.tileset.`03RedDragon`
@@ -101,14 +104,14 @@ fun MainMenuScreen(
 
                 // Main menu headings: automatically fit to the available width (same as buttons)
                 FitWidthText(
-                    text = "Mahjong",
+                    text = stringResource(R.string.menu_title_mahjong),
                     fontFamily = TomorrowBold,
                     color = Color(0xFF363636),
                     letterSpacing = 2.sp,
                 )
 
                 FitWidthText(
-                    text = "Solitaire",
+                    text = stringResource(R.string.menu_title_solitaire),
                     fontFamily = TomorrowBold,
                     color = Color(0xFF363636),
                     letterSpacing = 2.sp,
@@ -124,30 +127,38 @@ fun MainMenuScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (continueInfo != null) {
+                        val title = continueInfo.levelIndex?.let {
+                            stringResource(R.string.level_title, it, continueInfo.constellationName)
+                        } ?: continueInfo.constellationName
+                        val remaining = pluralStringResource(
+                            R.plurals.tiles_remaining,
+                            continueInfo.remainingTiles,
+                            continueInfo.remainingTiles
+                        )
                         MainMenuButton(
-                            text = "Continue Game",
-                            subtitle = "${continueInfo.title} • ${continueInfo.subtitle}",
+                            text = stringResource(R.string.menu_continue),
+                            subtitle = stringResource(R.string.details_separator, title, remaining),
                             onClick = onContinue,
                         )
                     }
 
                     MainMenuButton(
-                        text = "Play Levels",
+                        text = stringResource(R.string.menu_play_levels),
                         onClick = onPlayLevels,
                     )
 
                     MainMenuButton(
-                        text = "Choose Constellation",
+                        text = stringResource(R.string.menu_choose_constellation),
                         onClick = onChooseConstellation,
                     )
 
                     MainMenuButton(
-                        text = "Statistics",
+                        text = stringResource(R.string.menu_statistics),
                         onClick = onStats,
                     )
 
                     MainMenuButton(
-                        text = "Settings",
+                        text = stringResource(R.string.menu_settings),
                         onClick = onSettings,
                     )
                 }
@@ -305,8 +316,9 @@ fun MainMenuWithContinuePreview() {
     MahjongTheme {
         MainMenuScreen(
             continueInfo = ContinueInfo(
-                title = "Level 1: Jade Pillar",
-                subtitle = "32 tiles remaining"
+                levelIndex = 1,
+                constellationName = "Jade Pillar",
+                remainingTiles = 32
             ),
             onContinue = {},
             onPlayLevels = {},

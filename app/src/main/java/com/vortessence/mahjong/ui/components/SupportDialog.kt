@@ -14,10 +14,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.vortessence.mahjong.R
 
 @Composable
 fun SupportDialog(
@@ -41,7 +43,7 @@ fun SupportDialog(
                     .padding(24.dp)
             ) {
                 Text(
-                    text = "♥︎ Support this app",
+                    text = stringResource(R.string.settings_support),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -51,8 +53,7 @@ fun SupportDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "I'm very glad that you like this app. This app is open-source and will always be free, but I'd be happy if you were to buy me a coffee.\n\n" +
-                        "Unfortunately, due to Google's policies, I can't just add a button that would link to a page where you can easily donate. I'm sure that if you can find this project on my GitHub (PcmciaKai), you can also find a way to leave a tip.",
+                    text = stringResource(R.string.support_message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -64,7 +65,7 @@ fun SupportDialog(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Close", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.close), fontWeight = FontWeight.Bold)
                 }
             }
         }

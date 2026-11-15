@@ -9,7 +9,7 @@ import com.vortessence.mahjong.ui.viewmodel.MahjongViewModel
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: MahjongViewModel by viewModels()
+    private val viewModel: MahjongViewModel by viewModels { MahjongViewModel.Factory }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -31,6 +31,13 @@ data class Tile(
     val identifier: String
         get() = "${suit.name}_$value"
 
+    /** Tiles with the same key match each other (all Seasons share one key, as do all Flowers). */
+    val matchKey: String
+        get() = when (suit) {
+            TileSuit.SEASON, TileSuit.FLOWER -> suit.name
+            else -> identifier
+        }
+
     companion object {
         // Wind indices: 1 = East, 2 = South, 3 = West, 4 = North
         const val WIND_EAST = 1

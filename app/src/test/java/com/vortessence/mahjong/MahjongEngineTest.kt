@@ -5,6 +5,7 @@ import com.vortessence.mahjong.data.model.Constellation
 import com.vortessence.mahjong.data.model.Difficulty
 import com.vortessence.mahjong.data.model.GameSettings
 import com.vortessence.mahjong.data.model.GameState
+import com.vortessence.mahjong.data.model.Move
 import com.vortessence.mahjong.data.model.SavedGameState
 import com.vortessence.mahjong.data.model.TableSurface
 import com.vortessence.mahjong.data.model.Tile
@@ -313,16 +314,16 @@ class MahjongEngineTest {
         val (stateMatched, matchResult2) = MahjongGameEngine.handleTileTap(stateAfterMatch, firstPair.second)
         assertTrue(matchResult2 is TileTapResult.Matched)
 
-        // Advance timer and moves
-        val simulatedState = stateMatched.copy(timerSeconds = 42L)
+        val simulatedState = stateMatched
         assertEquals(1, simulatedState.movesCount)
         assertEquals(1, simulatedState.moveHistory.size)
         assertEquals(34, simulatedState.remainingTilesCount)
 
         // Serialize
-        val saved = SavedGameState.fromGameState(simulatedState, levelIndex = 1)
+        val saved = SavedGameState.fromGameState(simulatedState, levelIndex = 1, timerSeconds = 42L)
         val raw = saved.serialize()
         assertTrue(raw.contains("jade_pillar"))
+        assertTrue(raw.contains("\"version\":${SavedGameState.CURRENT_VERSION}"))
 
         // Deserialize
         val restoredSaved = SavedGameState.deserialize(raw)
@@ -338,7 +339,6 @@ class MahjongEngineTest {
         val restoredGameState = restoredSaved.toGameState()
         assertNotNull(restoredGameState)
         assertEquals("jade_pillar", restoredGameState.constellation.id)
-        assertEquals(42L, restoredGameState.timerSeconds)
         assertEquals(1, restoredGameState.movesCount)
         assertEquals(34, restoredGameState.remainingTilesCount)
         assertFalse(restoredGameState.isWon)
@@ -355,7 +355,7 @@ class MahjongEngineTest {
         val constellation = ConstellationRepository.getById("classic_turtle")
         val initialState = MahjongGameEngine.startNewGame(constellation)
 
-        val saved = SavedGameState.fromGameState(initialState, levelIndex = null)
+        val saved = SavedGameState.fromGameState(initialState, levelIndex = null, timerSeconds = 0L)
         val raw = saved.serialize()
 
         val restoredSaved = SavedGameState.deserialize(raw)
@@ -371,19 +371,47 @@ class MahjongEngineTest {
     }
 
     @Test
-    fun testPlaylistCyclingLogic() {
-        val playlistSize = 3
-        var currentIndex = 1 // Start at middle song
-        val sequence = mutableListOf<Int>()
+    fun testLegacySaveFormatStillLoads() {
+        // Written by app version 1.2.4 and earlier
+        val legacy = "mini_turtle|3|42|1|" +
+            "0,BAMBOO,1,0.0,0.0,0,0;1,BAMBOO,1,4.0,0.0,0,0;2,WIND,1,8.0,0.0,0,1;3,WIND,1,12.0,0.0,0,1|2,3"
+        val saved = SavedGameState.deserialize(legacy)
+        assertNotNull(saved)
+        assertEquals(1, saved!!.version)
+        assertEquals("mini_turtle", saved.constellationId)
+        assertEquals(3, saved.levelIndex)
+        assertEquals(42L, saved.timerSeconds)
+        assertEquals(4, saved.tiles.size)
+        assertEquals(listOf(Move(2, 3)), saved.moveHistory)
+        assertEquals(0, saved.hintsUsed)
 
-        // Simulate 7 song completions
-        repeat(7) {
-            currentIndex = (currentIndex + 1) % playlistSize
-            sequence.add(currentIndex)
-        }
+        val state = saved.toGameState()
+        assertEquals(2, state.remainingTilesCount)
+        assertFalse(state.isAssisted)
+    }
 
-        // Expected sequence starting from 1: 2, 0, 1, 2, 0, 1, 2
-        assertEquals(listOf(2, 0, 1, 2, 0, 1, 2), sequence)
+    @Test
+    fun testSaveIgnoresUnknownFieldsAndRejectsGarbage() {
+        val state = MahjongGameEngine.startNewGame(ConstellationRepository.getById("jade_pillar"))
+        val raw = SavedGameState.fromGameState(state, levelIndex = 1, timerSeconds = 5L).serialize()
+        val withFutureField = raw.replaceFirst("{", "{\"someFutureField\":true,")
+        assertNotNull(SavedGameState.deserialize(withFutureField))
+
+        assertEquals(null, SavedGameState.deserialize("{not json"))
+        assertEquals(null, SavedGameState.deserialize(""))
+    }
+
+    @Test
+    fun testAssistCountersArePersisted() {
+        val state = MahjongGameEngine.startNewGame(ConstellationRepository.getById("jade_pillar"))
+            .copy(hintsUsed = 2, undosUsed = 3, reshufflesUsed = 1)
+        val restored = SavedGameState.deserialize(
+            SavedGameState.fromGameState(state, levelIndex = 1, timerSeconds = 0L).serialize()
+        )!!.toGameState()
+        assertEquals(2, restored.hintsUsed)
+        assertEquals(3, restored.undosUsed)
+        assertEquals(1, restored.reshufflesUsed)
+        assertTrue(restored.isAssisted)
     }
 
     @Test
@@ -394,7 +422,7 @@ class MahjongEngineTest {
 
         val walnutSettings = defaultSettings.copy(tableSurface = TableSurface.WALNUT)
         assertEquals(TableSurface.WALNUT, walnutSettings.tableSurface)
-        assertEquals("Walnut", TableSurface.WALNUT.displayName)
+        assertEquals(R.string.surface_walnut, TableSurface.WALNUT.labelRes)
     }
 
     @Test
@@ -518,5 +546,130 @@ class MahjongEngineTest {
         assertFalse("Reshuffle must recover from the stacked pair", reshuffled.isStalemate)
         assertEquals(4, reshuffled.remainingTilesCount)
         assertTrue(reshuffled.moveHistory.isEmpty())
+        assertEquals("Engine take-backs are not player undos", 0, reshuffled.undosUsed)
+        assertEquals(1, reshuffled.reshufflesUsed)
+    }
+
+    /**
+     * Four Seasons: ids 0 and 1 lie free on their own, id 2 lies on top of id 3.
+     * Matching 0 with 1 leaves 2 stacked on 3, which can never be cleared.
+     */
+    private fun seasonsTrapState(): GameState {
+        val tiles = listOf(
+            BoardTile(id = 0, tile = Tile(TileSuit.SEASON, Tile.SEASON_SPRING), position = TilePosition(0f, 0f, 0)),
+            BoardTile(id = 1, tile = Tile(TileSuit.SEASON, Tile.SEASON_SUMMER), position = TilePosition(6f, 0f, 0)),
+            BoardTile(id = 2, tile = Tile(TileSuit.SEASON, Tile.SEASON_AUTUMN), position = TilePosition(12f, 0f, 1)),
+            BoardTile(id = 3, tile = Tile(TileSuit.SEASON, Tile.SEASON_WINTER), position = TilePosition(12f, 0f, 0)),
+        )
+        val constellation = Constellation(
+            id = "test_seasons",
+            name = "Test Seasons",
+            difficulty = Difficulty.EASY,
+            description = "",
+            positions = tiles.map { it.position },
+        )
+        return GameState(constellation = constellation, tiles = MahjongGameEngine.recalculateFreedom(tiles))
+    }
+
+    @Test
+    fun testRemovablePairsCountsSeasonsOnce() {
+        val state = seasonsTrapState()
+        assertEquals("Three free Seasons give three combinations", 3, MahjongGameEngine.findAvailablePairs(state.tiles).size)
+        assertEquals("...but only one pair can be removed at a time", 1, MahjongGameEngine.countRemovablePairs(state.tiles))
+    }
+
+    @Test
+    fun testHintAvoidsDeadEndPair() {
+        val state = seasonsTrapState()
+        val hints = MahjongGameEngine.rankedHints(state.tiles)
+        assertFalse("The trap pair must not be suggested", hints.contains(0 to 1))
+        assertEquals(2, hints.size)
+    }
+
+    @Test
+    fun testRepeatedHintCyclesThroughSuggestions() {
+        val state = seasonsTrapState()
+        val first = MahjongGameEngine.requestHint(state)
+        val second = MahjongGameEngine.requestHint(first)
+        val third = MahjongGameEngine.requestHint(second)
+        assertNotNull(first.hintPair)
+        assertFalse("Asking again must show another pair", first.hintPair == second.hintPair)
+        assertEquals("Suggestions wrap around", first.hintPair, third.hintPair)
+        assertEquals(3, third.hintsUsed)
+    }
+
+    /**
+     * The Seasons trap plus a free pair of Characters (ids 4, 5). Matching Seasons 0+1 makes the
+     * game unwinnable, but the dead end only becomes obvious after the Characters are taken too.
+     */
+    private fun delayedDeadEndState(): GameState {
+        val trap = seasonsTrapState()
+        val characters = Tile(TileSuit.CHARACTER, 7)
+        val tiles = trap.tiles + listOf(
+            BoardTile(id = 4, tile = characters, position = TilePosition(20f, 0f, 0)),
+            BoardTile(id = 5, tile = characters, position = TilePosition(26f, 0f, 0)),
+        )
+        val state = trap.copy(
+            constellation = trap.constellation.copy(positions = tiles.map { it.position }),
+            tiles = MahjongGameEngine.recalculateFreedom(tiles),
+        )
+        val afterTrap = playPair(state, 0, 1)
+        return playPair(afterTrap, 4, 5)
+    }
+
+    private fun playPair(state: GameState, a: Int, b: Int): GameState {
+        val (selected, _) = MahjongGameEngine.handleTileTap(state, a)
+        val (matched, result) = MahjongGameEngine.handleTileTap(selected, b)
+        assertTrue(result is TileTapResult.Matched)
+        return matched
+    }
+
+    @Test
+    fun testSingleUndoDoesNotEscapeDelayedDeadEnd() {
+        val dead = delayedDeadEndState()
+        assertTrue(dead.isStalemate)
+        val oneBack = MahjongGameEngine.undo(dead)
+        assertTrue("The Characters are free again, but the Seasons are still stuck", oneBack.availablePairsCount > 0)
+        assertTrue("One undo still leaves a dead end", oneBack.isStalemate)
+    }
+
+    @Test
+    fun testUndoToWinnableGoesBackPastTheTrap() {
+        val back = MahjongGameEngine.undoToWinnable(delayedDeadEndState())
+        assertFalse(back.isStalemate)
+        assertTrue("Both moves, including the trap, are taken back", back.moveHistory.isEmpty())
+        assertEquals(6, back.remainingTilesCount)
+        assertEquals(2, back.undosUsed)
+    }
+
+    @Test
+    fun testIsDeadEnd() {
+        val trap = seasonsTrapState()
+        assertFalse(MahjongGameEngine.isDeadEnd(trap))
+        assertTrue(MahjongGameEngine.isDeadEnd(playPair(trap, 0, 1)))
+    }
+
+    @Test
+    fun testSolverHandlesFullSizeBoards() {
+        // Boards of 64+ tiles used to be skipped by the solver entirely
+        val constellation = ConstellationRepository.getById("pagoda_spire")
+        val board = BoardSolvabilityGenerator.generateSolvableBoard(constellation, kotlin.random.Random(7))
+        assertEquals(144, board.size)
+        assertEquals(
+            "A freshly dealt board is solvable",
+            true,
+            BoardSolvabilityGenerator.canBeCleared(board.map { it.position to it.tile }, maxStates = 200_000)
+        )
+    }
+
+    @Test
+    fun testUndoCountsAsAssist() {
+        val state = seasonsTrapState()
+        val (selected, _) = MahjongGameEngine.handleTileTap(state, 0)
+        val (matched, _) = MahjongGameEngine.handleTileTap(selected, 2)
+        assertFalse(matched.isAssisted)
+        val undone = MahjongGameEngine.undo(matched)
+        assertEquals(1, undone.undosUsed)
+        assertTrue(undone.isAssisted)
     }
 }

@@ -44,8 +44,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.Constellation
 import com.vortessence.mahjong.data.model.Difficulty
 import com.vortessence.mahjong.data.model.GameStats
@@ -81,7 +84,7 @@ fun ConstellationSelectScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Constellations",
+                        text = stringResource(R.string.constellations_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -90,7 +93,7 @@ fun ConstellationSelectScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -117,7 +120,7 @@ fun ConstellationSelectScreen(
                     FilterChip(
                         selected = selectedDifficultyFilter == null,
                         onClick = { selectedDifficultyFilter = null },
-                        label = { Text("All Difficulties") },
+                        label = { Text(stringResource(R.string.filter_all_difficulties)) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -130,7 +133,7 @@ fun ConstellationSelectScreen(
                         onClick = {
                             selectedDifficultyFilter = if (selectedDifficultyFilter == diff) null else diff
                         },
-                        label = { Text(diff.displayName) },
+                        label = { Text(stringResource(diff.labelRes)) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -149,7 +152,7 @@ fun ConstellationSelectScreen(
                     FilterChip(
                         selected = selectedLayoutFilter == null,
                         onClick = { selectedLayoutFilter = null },
-                        label = { Text("All Layouts") },
+                        label = { Text(stringResource(R.string.filter_all_layouts)) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -162,7 +165,7 @@ fun ConstellationSelectScreen(
                         onClick = {
                             selectedLayoutFilter = if (selectedLayoutFilter == true) null else true
                         },
-                        label = { Text("📱 Phone (Vertical)") },
+                        label = { Text(stringResource(R.string.filter_phone)) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -175,7 +178,7 @@ fun ConstellationSelectScreen(
                         onClick = {
                             selectedLayoutFilter = if (selectedLayoutFilter == false) null else false
                         },
-                        label = { Text("💻 Classic / Tablet (Wide)") },
+                        label = { Text(stringResource(R.string.filter_tablet)) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -197,7 +200,9 @@ fun ConstellationSelectScreen(
                     ConstellationCard(
                         constellation = constellation,
                         isCompleted = isCompleted,
-                        bestTime = bestTime,
+                        // The tutorial is untimed
+                        bestTime = bestTime.takeIf { constellation.id != ConstellationRepository.TUTORIAL_ID },
+                        isBestTimeAssisted = constellation.id in stats.assistedBestTimes,
                         onClick = { onConstellationSelected(constellation) }
                     )
                 }
@@ -206,10 +211,10 @@ fun ConstellationSelectScreen(
     }
 }
 
-private fun layoutLabel(constellation: Constellation): String = when {
-    constellation.id == ConstellationRepository.TUTORIAL_ID -> "🎓 Tutorial"
-    constellation.isPortraitOptimized -> "📱 Phone"
-    else -> "💻 Tablet"
+private fun layoutLabelRes(constellation: Constellation): Int = when {
+    constellation.id == ConstellationRepository.TUTORIAL_ID -> R.string.layout_tutorial
+    constellation.isPortraitOptimized -> R.string.layout_phone
+    else -> R.string.layout_tablet
 }
 
 @Composable
@@ -217,6 +222,7 @@ private fun ConstellationCard(
     constellation: Constellation,
     isCompleted: Boolean,
     bestTime: Long?,
+    isBestTimeAssisted: Boolean,
     onClick: () -> Unit
 ) {
     Card(
@@ -249,7 +255,7 @@ private fun ConstellationCard(
                 if (isCompleted) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = "Completed",
+                        contentDescription = stringResource(R.string.completed),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 } else {
@@ -285,7 +291,12 @@ private fun ConstellationCard(
                     }
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${layoutLabel(constellation)} • ${constellation.difficulty.displayName} • ${constellation.tileCount} tiles",
+                        text = stringResource(
+                            R.string.constellation_details,
+                            stringResource(layoutLabelRes(constellation)),
+                            stringResource(constellation.difficulty.labelRes),
+                            pluralStringResource(R.plurals.tile_count, constellation.tileCount, constellation.tileCount)
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -303,7 +314,10 @@ private fun ConstellationCard(
                 if (bestTime != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Best time: ${formatTime(bestTime)}",
+                        text = stringResource(
+                            if (isBestTimeAssisted) R.string.best_time_long_assisted else R.string.best_time_long,
+                            formatTime(bestTime)
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary

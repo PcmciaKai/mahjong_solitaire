@@ -11,18 +11,24 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -36,17 +42,31 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.BoardTile
 import com.vortessence.mahjong.data.model.GameSettings
 import com.vortessence.mahjong.data.model.GameState
+import com.vortessence.mahjong.data.model.Tile
+import com.vortessence.mahjong.data.model.TileSuit
+import com.vortessence.mahjong.engine.BoardSolvabilityGenerator
 import com.vortessence.mahjong.ui.theme.GoldHighlight
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -61,6 +81,15 @@ private val TileDrawOrder: Comparator<BoardTile> =
     compareBy<BoardTile> { it.z }
         .thenBy { it.x + it.y }
         .thenBy { it.x }
+
+/** Limits for the player's own pinch zoom, on top of the automatic board scaling. */
+private const val MIN_USER_ZOOM = 1f
+private const val MAX_USER_ZOOM = 4f
+
+/** Ignores the system animator duration scale; the in-app animationsEnabled setting is the switch. */
+private object UnscaledMotion : MotionDurationScale {
+    override val scaleFactor: Float = 1f
+}
 
 private class SmashAnimationItem(
     val id: String,
@@ -107,27 +136,13 @@ fun MahjongBoard(
         }
     }
 
-    // Blocked shake/flash state
-    var blockedFlashId by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(gameState.blockedTileId) {
-        val blockedId = gameState.blockedTileId
-        if (blockedId != null) {
-            blockedFlashId = blockedId
-            try {
-                delay(350.milliseconds)
-            } finally {
-                blockedFlashId = null
-            }
-        } else {
-            blockedFlashId = null
-        }
-    }
-
     var boardSize by remember { mutableStateOf(IntSize.Zero) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
+            // Zoomed-in tiles must not spill over the header or other surrounding UI
+            .clipToBounds()
             .onSizeChanged { boardSize = it }
     ) {
         val canvasW = boardSize.width.toFloat()
@@ -145,7 +160,8 @@ fun MahjongBoard(
                     canvasH = canvasH,
                     paddingPx = paddingPx,
                     density = density,
-                    blockedFlashId = blockedFlashId
+                    // The view model clears this again once the flash is over
+                    blockedFlashId = gameState.blockedTileId
                 )
             }
         }
@@ -205,6 +221,11 @@ private fun BoardContent(
         }
     }
 
+    // While the player is zoomed in, the automatic camera stays where it was so the board doesn't
+    // shift under their fingers. Once they zoom back out, it catches up with the remaining tiles.
+    var frozenCamera by remember { mutableStateOf<BoardTransform?>(null) }
+    val cameraTarget = frozenCamera ?: targetTransform
+
     val zoomAnimSpec = if (settings.animationsEnabled) {
         tween<Float>(durationMillis = 500, easing = FastOutSlowInEasing)
     } else {
@@ -212,17 +233,17 @@ private fun BoardContent(
     }
 
     val animatedUnitX by animateFloatAsState(
-        targetValue = targetTransform.unitX,
+        targetValue = cameraTarget.unitX,
         animationSpec = zoomAnimSpec,
         label = "boardUnitX"
     )
     val animatedStartX by animateFloatAsState(
-        targetValue = targetTransform.startX,
+        targetValue = cameraTarget.startX,
         animationSpec = zoomAnimSpec,
         label = "boardStartX"
     )
     val animatedStartY by animateFloatAsState(
-        targetValue = targetTransform.startY,
+        targetValue = cameraTarget.startY,
         animationSpec = zoomAnimSpec,
         label = "boardStartY"
     )
@@ -232,7 +253,14 @@ private fun BoardContent(
     val currentShiftX = currentTileW * BoardTransform.LAYER_SHIFT_FACTOR_X
     val currentShiftY = currentTileH * BoardTransform.LAYER_SHIFT_FACTOR_Y
 
-    val currentTransform = BoardTransform(
+    // Pinch-to-zoom and panning by the player. The board leaves the composition whenever a new
+    // board is dealt, which resets the zoom.
+    var userScale by remember { mutableFloatStateOf(MIN_USER_ZOOM) }
+    var userOffset by remember { mutableStateOf(Offset.Zero) }
+    val canvasCenter = Offset(canvasW / 2f, canvasH / 2f)
+
+    // The automatic camera alone, before the player's own zoom is applied
+    val cameraTransform = BoardTransform(
         unitX = animatedUnitX,
         tileWidth = currentTileW,
         tileHeight = currentTileH,
@@ -243,6 +271,8 @@ private fun BoardContent(
         depthX = currentShiftX,
         depthY = currentShiftY
     )
+    val currentTransform = cameraTransform.zoomed(scale = userScale, offset = userOffset, pivot = canvasCenter)
+    val latestCameraTransform by rememberUpdatedState(cameraTransform)
 
     // Matching tiles smash animations
     var activeSmashes by remember { mutableStateOf<List<SmashAnimationItem>>(emptyList()) }
@@ -268,10 +298,13 @@ private fun BoardContent(
                     onTileMatch()
                 }
                 launch {
-                    smashItem.animatable.animateTo(
-                        targetValue = 1f,
-                        animationSpec = tween(durationMillis = 420, easing = LinearEasing)
-                    )
+                    // Pinned to 1x so the collision stays in sync with the delayed sound/haptic
+                    withContext(UnscaledMotion) {
+                        smashItem.animatable.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = 420, easing = LinearEasing)
+                        )
+                    }
                     activeSmashes = activeSmashes.filter { it.id != animId }
                 }
             }
@@ -291,6 +324,29 @@ private fun BoardContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .pointerInput(canvasW, canvasH) {
+                detectTransformGestures { centroid, pan, zoom, _ ->
+                    val oldScale = userScale
+                    val newScale = (oldScale * zoom).coerceIn(MIN_USER_ZOOM, MAX_USER_ZOOM)
+                    // Keep the board point under the fingers in place while zooming
+                    val newOffset = centroid + pan - canvasCenter -
+                        (centroid - canvasCenter - userOffset) * (newScale / oldScale)
+                    // Never pan further than the zoomed-in board reaches
+                    val maxX = canvasW * (newScale - 1f) / 2f
+                    val maxY = canvasH * (newScale - 1f) / 2f
+                    if (newScale > MIN_USER_ZOOM) {
+                        // Stop the camera where it is right now, even mid-animation
+                        if (frozenCamera == null) frozenCamera = latestCameraTransform
+                    } else {
+                        frozenCamera = null
+                    }
+                    userScale = newScale
+                    userOffset = Offset(
+                        newOffset.x.coerceIn(-maxX, maxX),
+                        newOffset.y.coerceIn(-maxY, maxY)
+                    )
+                }
+            }
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     val tappedId = findTappedTileId(offset.x, offset.y, latestTiles, latestTransform)
@@ -300,7 +356,12 @@ private fun BoardContent(
                 }
             }
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        val boardDescription = stringResource(R.string.board_description)
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .semantics { contentDescription = boardDescription }
+        ) {
             TableSurfaceRenderer.drawTableSurface(
                 scope = this,
                 surface = settings.tableSurface,
@@ -346,7 +407,102 @@ private fun BoardContent(
                 )
             }
         }
+
+        TileAccessibilityNodes(
+            gameState = gameState,
+            transform = currentTransform,
+            density = density,
+            onTileClick = onTileClick
+        )
     }
+}
+
+/**
+ * Invisible nodes on top of the canvas so screen readers can find, read and activate the tiles
+ * that are not covered by other tiles. They have no pointer input, so normal taps still go to the
+ * board's gesture detector.
+ */
+@Composable
+private fun TileAccessibilityNodes(
+    gameState: GameState,
+    transform: BoardTransform,
+    density: Density,
+    onTileClick: (Int) -> Unit,
+) {
+    val uncoveredTiles = remember(gameState.tiles) {
+        val activeTiles = gameState.tiles.filter { !it.isRemoved }
+        val positions = activeTiles.map { it.position }
+        activeTiles
+            .filter { !BoardSolvabilityGenerator.isCovered(it.position, positions) }
+            .sortedWith(compareBy<BoardTile> { it.y }.thenBy { it.x })
+    }
+    val nodeWidth = with(density) { (transform.tileWidth + transform.depthX).toDp() }
+    val nodeHeight = with(density) { (transform.tileHeight + transform.depthY).toDp() }
+
+    for (tile in uncoveredTiles) {
+        key(tile.id) {
+            val label = tileLabel(tile.tile)
+            val state = stringResource(if (tile.isFree) R.string.tile_free else R.string.tile_blocked, label)
+            val isHinted = gameState.hintPair?.let { it.first == tile.id || it.second == tile.id } == true
+            val description = if (isHinted) stringResource(R.string.tile_hinted, state) else state
+            val isSelected = tile.id == gameState.selectedTileId
+            val px = transform.tilePixelX(tile.x, tile.z)
+            val py = transform.tilePixelY(tile.y, tile.z)
+
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(px.roundToInt(), py.roundToInt()) }
+                    .size(nodeWidth, nodeHeight)
+                    .semantics {
+                        contentDescription = description
+                        role = Role.Button
+                        selected = isSelected
+                        onClick {
+                            onTileClick(tile.id)
+                            true
+                        }
+                    }
+            )
+        }
+    }
+}
+
+@Composable
+private fun tileLabel(tile: Tile): String = when (tile.suit) {
+    TileSuit.CHARACTER -> stringResource(R.string.tile_characters, tile.value)
+    TileSuit.BAMBOO -> stringResource(R.string.tile_bamboo, tile.value)
+    TileSuit.CIRCLE -> stringResource(R.string.tile_circles, tile.value)
+    TileSuit.WIND -> stringResource(
+        when (tile.value) {
+            Tile.WIND_EAST -> R.string.tile_wind_east
+            Tile.WIND_SOUTH -> R.string.tile_wind_south
+            Tile.WIND_WEST -> R.string.tile_wind_west
+            else -> R.string.tile_wind_north
+        }
+    )
+    TileSuit.DRAGON -> stringResource(
+        when (tile.value) {
+            Tile.DRAGON_RED -> R.string.tile_dragon_red
+            Tile.DRAGON_GREEN -> R.string.tile_dragon_green
+            else -> R.string.tile_dragon_white
+        }
+    )
+    TileSuit.SEASON -> stringResource(
+        when (tile.value) {
+            Tile.SEASON_SPRING -> R.string.tile_season_spring
+            Tile.SEASON_SUMMER -> R.string.tile_season_summer
+            Tile.SEASON_AUTUMN -> R.string.tile_season_autumn
+            else -> R.string.tile_season_winter
+        }
+    )
+    TileSuit.FLOWER -> stringResource(
+        when (tile.value) {
+            Tile.FLOWER_PLUM -> R.string.tile_flower_plum
+            Tile.FLOWER_ORCHID -> R.string.tile_flower_orchid
+            Tile.FLOWER_CHRYSANTHEMUM -> R.string.tile_flower_chrysanthemum
+            else -> R.string.tile_flower_bamboo
+        }
+    )
 }
 
 private fun DrawScope.drawSmashAnimation(
@@ -563,6 +719,24 @@ data class BoardTransform(
 
     fun tilePixelY(gridY: Float, layerZ: Int): Float {
         return startY + gridY * (unitX * ASPECT_RATIO) - layerZ * layerShiftY
+    }
+
+    /**
+     * This transform scaled by [scale] around [pivot] and then moved by [offset].
+     */
+    fun zoomed(scale: Float, offset: Offset, pivot: Offset): BoardTransform {
+        if (scale == 1f && offset == Offset.Zero) return this
+        return copy(
+            unitX = unitX * scale,
+            tileWidth = tileWidth * scale,
+            tileHeight = tileHeight * scale,
+            startX = (startX - pivot.x) * scale + pivot.x + offset.x,
+            startY = (startY - pivot.y) * scale + pivot.y + offset.y,
+            layerShiftX = layerShiftX * scale,
+            layerShiftY = layerShiftY * scale,
+            depthX = depthX * scale,
+            depthY = depthY * scale,
+        )
     }
 
     companion object {

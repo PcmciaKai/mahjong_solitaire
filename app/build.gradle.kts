@@ -14,8 +14,8 @@ android {
         applicationId = "com.vortessence.mahjong"
         minSdk = 30
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.2.5"
+        versionCode = 9
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

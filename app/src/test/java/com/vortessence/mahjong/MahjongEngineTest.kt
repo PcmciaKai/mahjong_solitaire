@@ -420,9 +420,9 @@ class MahjongEngineTest {
         assertEquals(TableSurface.GREEN_MAT, defaultSettings.tableSurface)
         assertEquals(TableSurface.GREEN_MAT, defaultSettings.theme)
 
-        val walnutSettings = defaultSettings.copy(tableSurface = TableSurface.WALNUT)
-        assertEquals(TableSurface.WALNUT, walnutSettings.tableSurface)
-        assertEquals(R.string.surface_walnut, TableSurface.WALNUT.labelRes)
+        val blueSettings = defaultSettings.copy(tableSurface = TableSurface.BLUE_MAT)
+        assertEquals(TableSurface.BLUE_MAT, blueSettings.tableSurface)
+        assertEquals(R.string.surface_blue_mat, TableSurface.BLUE_MAT.labelRes)
     }
 
     @Test

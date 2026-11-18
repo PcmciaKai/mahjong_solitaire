@@ -35,7 +35,7 @@ fun TableSurfacesPreview() {
         ) {
             TableSurfaceItem("Green Mat", TableSurface.GREEN_MAT)
             Spacer(modifier = Modifier.height(24.dp))
-            TableSurfaceItem("Walnut Wood", TableSurface.WALNUT)
+            TableSurfaceItem("Blue Mat", TableSurface.BLUE_MAT)
         }
     }
 }
@@ -70,7 +70,7 @@ private fun TableSurfaceItem(name: String, surface: TableSurface) {
 
 @Preview(widthDp = 400, heightDp = 650, showBackground = true)
 @Composable
-fun BoardWithWalnutPreview() {
+fun BoardWithLeatherPreview() {
     val miniTurtle = ConstellationRepository.getById("mini_turtle")
     val state = MahjongGameEngine.startNewGame(miniTurtle)
 
@@ -79,7 +79,7 @@ fun BoardWithWalnutPreview() {
             MahjongBoard(
                 gameState = state,
                 settings = GameSettings(
-                    tableSurface = TableSurface.WALNUT,
+                    tableSurface = TableSurface.LEATHER_MAT,
                     highlightFreeTiles = false
                 ),
                 onTileClick = {}

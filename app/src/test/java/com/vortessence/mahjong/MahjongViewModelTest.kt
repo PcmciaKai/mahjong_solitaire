@@ -211,7 +211,7 @@ class MahjongViewModelTest {
 
         // The win is revealed after the final match animation
         assertFalse(viewModel.gameState.value!!.isWon)
-        scheduler.advanceTimeBy(700)
+        scheduler.advanceTimeBy(900)
         scheduler.runCurrent()
         assertTrue(viewModel.gameState.value!!.isWon)
         assertEquals(1, sounds.wins)

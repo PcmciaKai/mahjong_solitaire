@@ -29,6 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -60,6 +62,8 @@ import com.vortessence.mahjong.data.model.GameState
 import com.vortessence.mahjong.data.model.Tile
 import com.vortessence.mahjong.data.model.TileSuit
 import com.vortessence.mahjong.engine.BoardSolvabilityGenerator
+import com.vortessence.mahjong.ui.components.tiles.TileLook
+import com.vortessence.mahjong.ui.components.tiles.rememberTileLook
 import com.vortessence.mahjong.ui.theme.GoldHighlight
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -85,6 +89,27 @@ private val TileDrawOrder: Comparator<BoardTile> =
 /** Limits for the player's own pinch zoom, on top of the automatic board scaling. */
 private const val MIN_USER_ZOOM = 1f
 private const val MAX_USER_ZOOM = 4f
+
+/** Space between the board and the edges of its area. */
+private val BOARD_MARGIN = 28.dp
+
+/**
+ * Automatic zoom as tiles are cleared: at most this much closer than the full board, and never
+ * so close that fewer than this many tiles fit across the shorter side of the screen.
+ */
+private const val AUTO_ZOOM_MAX_FACTOR = 1.5f
+private const val AUTO_ZOOM_MIN_TILES_ACROSS = 8f
+
+/**
+ * The match animation: tiles rise, rush together and collide, then vanish. The sound and haptic
+ * are timed to the collision, so they follow these values.
+ */
+private const val MATCH_ANIMATION_MS = 600
+private const val MATCH_LIFT_END = 0.25f
+private const val MATCH_IMPACT = 0.70f
+
+/** Starts the sound this much before the collision, to make up for audio output latency. */
+private const val MATCH_SOUND_LEAD_MS = 15L
 
 /** Ignores the system animator duration scale; the in-app animationsEnabled setting is the switch. */
 private object UnscaledMotion : MotionDurationScale {
@@ -118,7 +143,7 @@ fun MahjongBoard(
     onTileMatch: () -> Unit = {},
 ) {
     val density = LocalDensity.current
-    val paddingPx = with(density) { 16.dp.toPx() }
+    val paddingPx = with(density) { BOARD_MARGIN.toPx() }
 
     // Hint pulse animation
     val hintPulse = remember { Animatable(0f) }
@@ -161,7 +186,8 @@ fun MahjongBoard(
                     paddingPx = paddingPx,
                     density = density,
                     // The view model clears this again once the flash is over
-                    blockedFlashId = gameState.blockedTileId
+                    blockedFlashId = gameState.blockedTileId,
+                    hintPulse = { hintPulse.value }
                 )
             }
         }
@@ -179,7 +205,8 @@ private fun BoardContent(
     canvasH: Float,
     paddingPx: Float,
     density: Density,
-    blockedFlashId: Int?
+    blockedFlashId: Int?,
+    hintPulse: () -> Float
 ) {
     val context = LocalContext.current
 
@@ -210,8 +237,14 @@ private fun BoardContent(
                     availableWidth = canvasW,
                     availableHeight = canvasH,
                     paddingPx = paddingPx,
-                    maxZoomFactor = 1.8f,
-                    baseUnitX = baseTransform.unitX
+                    maxZoomFactor = AUTO_ZOOM_MAX_FACTOR,
+                    baseUnitX = baseTransform.unitX,
+                    // Never larger than about AUTO_ZOOM_MIN_TILES_ACROSS tiles across the short side
+                    // of the screen, unless the full board already shows them bigger
+                    maxUnitX = max(
+                        baseTransform.unitX,
+                        min(canvasW, canvasH) / (2f * AUTO_ZOOM_MIN_TILES_ACROSS)
+                    )
                 )
             } else {
                 baseTransform
@@ -274,6 +307,15 @@ private fun BoardContent(
     val currentTransform = cameraTransform.zoomed(scale = userScale, offset = userOffset, pivot = canvasCenter)
     val latestCameraTransform by rememberUpdatedState(cameraTransform)
 
+    // Lamp lighting and the tile set's look
+    val lighting = settings.lampLightingEnabled
+    val tileLook = rememberTileLook(
+        set = settings.tileSet,
+        colorway = settings.tileColorway,
+        worn = settings.wornTilesEnabled,
+    )
+    val boardLighting = remember(canvasW, canvasH) { BoardLighting(canvasW, canvasH) }
+
     // Matching tiles smash animations
     var activeSmashes by remember { mutableStateOf<List<SmashAnimationItem>>(emptyList()) }
     var prevMoveCount by remember { mutableIntStateOf(gameState.moveHistory.size) }
@@ -294,7 +336,7 @@ private fun BoardContent(
                 )
                 activeSmashes += smashItem
                 launch {
-                    delay(280.milliseconds)
+                    delay(((MATCH_ANIMATION_MS * MATCH_IMPACT).toLong() - MATCH_SOUND_LEAD_MS).milliseconds)
                     onTileMatch()
                 }
                 launch {
@@ -302,7 +344,7 @@ private fun BoardContent(
                     withContext(UnscaledMotion) {
                         smashItem.animatable.animateTo(
                             targetValue = 1f,
-                            animationSpec = tween(durationMillis = 420, easing = LinearEasing)
+                            animationSpec = tween(durationMillis = MATCH_ANIMATION_MS, easing = LinearEasing)
                         )
                     }
                     activeSmashes = activeSmashes.filter { it.id != animId }
@@ -356,44 +398,121 @@ private fun BoardContent(
                 }
             }
     ) {
+        // The table has its own canvas, which only reads the surface setting: it is recorded once
+        // and then replayed, instead of being redrawn on every animation frame of the tiles.
+        //
+        // It moves and zooms together with the board, through its layer's transform, as if the
+        // camera came closer to the mat: when edge tiles are cleared and the board zooms in, the
+        // mat's edges slide out of view with them.
+        val tableSurface = settings.tableSurface
+        val tableScale = currentTransform.unitX / baseTransform.unitX
+        // Where the base layout's origin ends up: tiles map from base to current as
+        // current = base * scale + offset
+        val tableOffset = Offset(
+            currentTransform.startX - (baseTransform.startX * tableScale),
+            currentTransform.startY - (baseTransform.startY * tableScale)
+        )
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    // Never zoom out past the full mat, and never pan past its edges, so no empty
+                    // space shows around it (near the edges the mat moves a little less than the tiles)
+                    val scale = tableScale.coerceAtLeast(1f)
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = tableOffset.x.coerceIn(canvasW * (1f - scale), 0f)
+                    translationY = tableOffset.y.coerceIn(canvasH * (1f - scale), 0f)
+                }
+        ) {
+            TableSurfaceRenderer.drawTableSurface(
+                scope = this,
+                surface = tableSurface,
+                width = size.width,
+                height = size.height,
+                context = context,
+            )
+        }
+
         val boardDescription = stringResource(R.string.board_description)
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .semantics { contentDescription = boardDescription }
         ) {
-            TableSurfaceRenderer.drawTableSurface(
-                scope = this,
-                surface = settings.tableSurface,
-                width = canvasW,
-                height = canvasH,
-                context = context,
-            )
-
             val sortedTiles = gameState.tiles
                 .filter { !it.isRemoved }
                 .sortedWith(TileDrawOrder)
 
-            for (tile in sortedTiles) {
-                val px = currentTransform.tilePixelX(tile.x, tile.z)
-                val py = currentTransform.tilePixelY(tile.y, tile.z)
-                val isSelected = tile.id == gameState.selectedTileId
-                val isHinted = gameState.hintPair?.let { it.first == tile.id || it.second == tile.id } ?: false
-                val isBlockedFlash = (blockedFlashId != null) && (tile.id == blockedFlashId)
+            val tileW = currentTransform.tileWidth
+            val tileH = currentTransform.tileHeight
+            val selectedTile = sortedTiles.firstOrNull { it.id == gameState.selectedTileId }
+            val hinted = gameState.hintPair
+            val pulse = if (hinted != null) 0.55f + (0.45f * hintPulse()) else 1f
 
+            for (tile in sortedTiles) {
+                // The selected tile is picked up off the board, so it is drawn last, on top
+                if (tile === selectedTile) continue
+                val x = currentTransform.tilePixelX(tile.x, tile.z)
+                val y = currentTransform.tilePixelY(tile.y, tile.z)
                 TileRenderer.drawTile(
                     scope = this,
                     boardTile = tile,
-                    x = px,
-                    y = py,
-                    width = currentTransform.tileWidth,
-                    height = currentTransform.tileHeight,
-                    isSelected = isSelected,
-                    isHinted = isHinted,
-                    isBlockedHighlight = isBlockedFlash,
-                    isTutorialHighlight = tile.id in highlightedTileIds,
-                    highlightFreeTiles = settings.highlightFreeTiles,
-                    showCornerIndex = settings.showCornerIndex
+                    x = x,
+                    y = y,
+                    width = tileW,
+                    height = tileH,
+                    showCornerIndex = settings.showCornerIndex,
+                    look = tileLook,
+                    layerShading = lighting,
+                    dimmed = settings.highlightFreeTiles && !tile.isFree
+                )
+                // Drawn right after its tile, so tiles in front still cover it like the tile itself
+                val highlight = when {
+                    tile.id == blockedFlashId -> TileRenderer.Highlight.BLOCKED
+                    (hinted != null) && ((tile.id == hinted.first) || (tile.id == hinted.second)) ->
+                        TileRenderer.Highlight.HINT
+                    tile.id in highlightedTileIds -> TileRenderer.Highlight.TUTORIAL
+                    else -> null
+                }
+                if (highlight != null) {
+                    TileRenderer.drawHighlight(
+                        scope = this,
+                        x = x,
+                        y = y,
+                        width = tileW,
+                        height = tileH,
+                        highlight = highlight,
+                        intensity = if (highlight == TileRenderer.Highlight.HINT) pulse else 1f
+                    )
+                }
+            }
+
+            if (selectedTile != null) {
+                val lift = TileRenderer.selectionLift(tileW)
+                val x = currentTransform.tilePixelX(selectedTile.x, selectedTile.z)
+                val y = currentTransform.tilePixelY(selectedTile.y, selectedTile.z)
+                TileRenderer.drawTile(
+                    scope = this,
+                    boardTile = selectedTile,
+                    x = x,
+                    y = y,
+                    width = tileW,
+                    height = tileH,
+                    showCornerIndex = settings.showCornerIndex,
+                    look = tileLook,
+                    layerShading = lighting,
+                    lift = lift
+                )
+                TileRenderer.drawHighlight(
+                    scope = this,
+                    x = x,
+                    y = y,
+                    width = tileW,
+                    height = tileH,
+                    highlight = TileRenderer.Highlight.SELECTED,
+                    lift = lift
                 )
             }
 
@@ -403,9 +522,12 @@ private fun BoardContent(
                     smash = smash,
                     transform = currentTransform,
                     density = density,
-                    showCornerIndex = settings.showCornerIndex
+                    showCornerIndex = settings.showCornerIndex,
+                    look = tileLook
                 )
             }
+
+            if (lighting) boardLighting.drawFalloff(this)
         }
 
         TileAccessibilityNodes(
@@ -509,7 +631,8 @@ private fun DrawScope.drawSmashAnimation(
     smash: SmashAnimationItem,
     transform: BoardTransform,
     density: Density,
-    showCornerIndex: Boolean
+    showCornerIndex: Boolean,
+    look: TileLook
 ) {
     val p = smash.animatable.value
     val t1 = smash.tile1
@@ -526,14 +649,14 @@ private fun DrawScope.drawSmashAnimation(
     val maxLift = with(density) { 16.dp.toPx() }
 
     // Phases:
-    // Phase 1 (0f..0.25f): Raise off board
-    // Phase 2 (0.25f..0.70f): Smash into midpoint
-    // Phase 3 (0.70f..1.0f): Impact & Disappear
-    val liftFraction = (p / 0.25f).coerceIn(0f, 1f)
+    // Phase 1 (0..MATCH_LIFT_END): Raise off board
+    // Phase 2 (MATCH_LIFT_END..MATCH_IMPACT): Smash into midpoint
+    // Phase 3 (MATCH_IMPACT..1): Impact & Disappear
+    val liftFraction = (p / MATCH_LIFT_END).coerceIn(0f, 1f)
     val liftY = -maxLift * liftFraction
 
     val frame = when {
-        p < 0.25f -> {
+        p < MATCH_LIFT_END -> {
             val s = 1f + 0.18f * liftFraction
             SmashFrame(
                 x1 = start1X,
@@ -545,8 +668,8 @@ private fun DrawScope.drawSmashAnimation(
                 impactFraction = 0f
             )
         }
-        p < 0.70f -> {
-            val rushRaw = (p - 0.25f) / 0.45f
+        p < MATCH_IMPACT -> {
+            val rushRaw = (p - MATCH_LIFT_END) / (MATCH_IMPACT - MATCH_LIFT_END)
             val rushEased = rushRaw * rushRaw
             val s = 1.18f
             SmashFrame(
@@ -560,7 +683,7 @@ private fun DrawScope.drawSmashAnimation(
             )
         }
         else -> {
-            val impact = (p - 0.70f) / 0.30f
+            val impact = (p - MATCH_IMPACT) / (1f - MATCH_IMPACT)
             val s = 1.18f * (1f - impact * 0.7f)
             val a = (1f - impact).coerceIn(0f, 1f)
             SmashFrame(
@@ -576,7 +699,7 @@ private fun DrawScope.drawSmashAnimation(
     }
 
     // 1. Raised shadow cast on table plane during lift and rush
-    if (frame.alpha > 0.05f && p < 0.70f) {
+    if (frame.alpha > 0.05f && p < MATCH_IMPACT) {
         val shadowAlpha = 0.35f * liftFraction
         val shadowCorner = CornerRadius(transform.tileWidth * 0.085f)
         val shadowW = transform.tileWidth * frame.scale
@@ -636,7 +759,8 @@ private fun DrawScope.drawSmashAnimation(
                 scale = frame.scale,
                 alpha = frame.alpha,
                 transform = transform,
-                showCornerIndex = showCornerIndex
+                showCornerIndex = showCornerIndex,
+                look = look
             )
         }
     }
@@ -649,52 +773,42 @@ private fun DrawScope.drawSingleAnimatingTile(
     scale: Float,
     alpha: Float,
     transform: BoardTransform,
-    showCornerIndex: Boolean
+    showCornerIndex: Boolean,
+    look: TileLook
 ) {
     val pivot = Offset(posX + transform.tileWidth / 2f, posY + transform.tileHeight / 2f)
+    // Matched tiles keep the selection ring while they fly together
+    val drawTileAndRing: DrawScope.() -> Unit = {
+        TileRenderer.drawTile(
+            scope = this,
+            boardTile = tile.copy(isRemoved = false, isFree = true),
+            x = posX,
+            y = posY,
+            width = transform.tileWidth,
+            height = transform.tileHeight,
+            showCornerIndex = showCornerIndex,
+            look = look
+        )
+        TileRenderer.drawHighlight(
+            scope = this,
+            x = posX,
+            y = posY,
+            width = transform.tileWidth,
+            height = transform.tileHeight,
+            highlight = TileRenderer.Highlight.SELECTED
+        )
+    }
     if (alpha < 0.99f) {
         val bounds = Rect(0f, 0f, size.width, size.height)
         val paint = Paint().apply { this.alpha = alpha }
         drawContext.canvas.saveLayer(bounds, paint)
         try {
-            withTransform({
-                scale(scale, scale, pivot = pivot)
-            }) {
-                TileRenderer.drawTile(
-                    scope = this,
-                    boardTile = tile.copy(isRemoved = false, isFree = true),
-                    x = posX,
-                    y = posY,
-                    width = transform.tileWidth,
-                    height = transform.tileHeight,
-                    isSelected = true,
-                    isHinted = false,
-                    isBlockedHighlight = false,
-                    highlightFreeTiles = false,
-                    showCornerIndex = showCornerIndex
-                )
-            }
+            withTransform({ scale(scale, scale, pivot = pivot) }, drawTileAndRing)
         } finally {
             drawContext.canvas.restore()
         }
     } else {
-        withTransform({
-            scale(scale, scale, pivot = pivot)
-        }) {
-            TileRenderer.drawTile(
-                scope = this,
-                boardTile = tile.copy(isRemoved = false, isFree = true),
-                x = posX,
-                y = posY,
-                width = transform.tileWidth,
-                height = transform.tileHeight,
-                isSelected = true,
-                isHinted = false,
-                isBlockedHighlight = false,
-                highlightFreeTiles = false,
-                showCornerIndex = showCornerIndex
-            )
-        }
+        withTransform({ scale(scale, scale, pivot = pivot) }, drawTileAndRing)
     }
 }
 
@@ -752,7 +866,8 @@ private fun computeBoardTransform(
     availableHeight: Float,
     paddingPx: Float,
     maxZoomFactor: Float = 1f,
-    baseUnitX: Float = 0f
+    baseUnitX: Float = 0f,
+    maxUnitX: Float = Float.MAX_VALUE
 ): BoardTransform {
     val aspectRatio = BoardTransform.ASPECT_RATIO
 
@@ -791,6 +906,7 @@ private fun computeBoardTransform(
     if (baseUnitX > 0f && maxZoomFactor > 1f) {
         unitX = min(unitX, baseUnitX * maxZoomFactor)
     }
+    unitX = min(unitX, maxUnitX)
 
     val tileW = unitX * 2f
     val tileH = tileW * aspectRatio

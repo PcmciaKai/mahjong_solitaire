@@ -15,6 +15,7 @@ import com.vortessence.mahjong.data.model.GameSettings
 import com.vortessence.mahjong.data.model.GameStats
 import com.vortessence.mahjong.data.model.SavedGameState
 import com.vortessence.mahjong.data.model.TableSurface
+import com.vortessence.mahjong.data.model.TileSet
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -61,6 +62,10 @@ class PreferencesRepository(private val context: Context) : GameRepository {
         val ANIMATIONS = booleanPreferencesKey("animations")
         val VIBRATION = booleanPreferencesKey("vibration")
         val SHOW_CORNER_INDEX = booleanPreferencesKey("show_corner_index")
+        val LAMP_LIGHTING = booleanPreferencesKey("lamp_lighting")
+        val WORN_TILES = booleanPreferencesKey("worn_tiles")
+        val TILE_SET = stringPreferencesKey("tile_set")
+        val TILE_COLORWAY = intPreferencesKey("tile_colorway")
         val THEME = stringPreferencesKey("theme")
 
         val GAMES_PLAYED = intPreferencesKey("games_played")
@@ -103,7 +108,9 @@ class PreferencesRepository(private val context: Context) : GameRepository {
     override val settingsFlow: Flow<GameSettings> = context.dataStore.data.map { prefs ->
         val surfaceStr = prefs[Keys.TABLE_SURFACE] ?: prefs[Keys.THEME] ?: TableSurface.GREEN_MAT.name
         val surface = when (surfaceStr) {
-            "WOOD" -> TableSurface.WALNUT
+            // Earlier versions had a blue automatic table; walnut and other removed surfaces fall
+            // through to the green mat below
+            "AUTOMATIC_TABLE" -> TableSurface.BLUE_MAT
             "DARK" -> TableSurface.GREEN_MAT
             else -> try {
                 TableSurface.valueOf(surfaceStr)
@@ -122,6 +129,12 @@ class PreferencesRepository(private val context: Context) : GameRepository {
             animationsEnabled = !isSystemAnimationScaleZero() && (prefs[Keys.ANIMATIONS] ?: true),
             vibrationEnabled = prefs[Keys.VIBRATION] ?: true,
             showCornerIndex = prefs[Keys.SHOW_CORNER_INDEX] ?: false,
+            lampLightingEnabled = prefs[Keys.LAMP_LIGHTING] ?: true,
+            wornTilesEnabled = prefs[Keys.WORN_TILES] ?: false,
+            tileSet = prefs[Keys.TILE_SET]
+                ?.let { name -> TileSet.entries.firstOrNull { it.name == name } }
+                ?: TileSet.Default,
+            tileColorway = prefs[Keys.TILE_COLORWAY] ?: 0,
             tableSurface = surface,
         )
     }
@@ -161,6 +174,10 @@ class PreferencesRepository(private val context: Context) : GameRepository {
             }
             prefs[Keys.VIBRATION] = settings.vibrationEnabled
             prefs[Keys.SHOW_CORNER_INDEX] = settings.showCornerIndex
+            prefs[Keys.LAMP_LIGHTING] = settings.lampLightingEnabled
+            prefs[Keys.WORN_TILES] = settings.wornTilesEnabled
+            prefs[Keys.TILE_SET] = settings.tileSet.name
+            prefs[Keys.TILE_COLORWAY] = settings.tileColorway
             prefs[Keys.TABLE_SURFACE] = settings.tableSurface.name
             prefs[Keys.THEME] = settings.tableSurface.name
         }

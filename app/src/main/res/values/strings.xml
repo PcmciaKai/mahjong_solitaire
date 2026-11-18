@@ -29,7 +29,13 @@
 
     <!-- Table surfaces -->
     <string name="surface_green_mat">Green Mat</string>
-    <string name="surface_walnut">Walnut</string>
+    <string name="surface_green_mat_description">The classic: dark green felt with a stitched, bound edge, as on most home tables.</string>
+    <string name="surface_blue_mat">Blue Mat</string>
+    <string name="surface_blue_mat_description">Deep blue felt, the other colour of automatic mahjong tables.</string>
+    <string name="surface_card_table">Card Table</string>
+    <string name="surface_card_table_description">Burgundy felt framed by a padded, stitched leather rail.</string>
+    <string name="surface_leather_mat">Leather Mat</string>
+    <string name="surface_leather_mat_description">Dark leather with a saddle-stitched edge, a pressed frame and gilt ornaments in the corners.</string>
 
     <!-- Main menu -->
     <string name="menu_title_mahjong">Mahjong</string>
@@ -120,6 +126,50 @@
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_table_surface">Table Surface</string>
     <string name="settings_table_surface_summary">Material surface of the playing table</string>
+    <string name="settings_lamp_lighting">Lamp Lighting</string>
+    <string name="settings_lamp_lighting_summary">A warm lamp above the table that lights up the board and its tiles</string>
+    <string name="settings_worn_tiles">Worn Tiles</string>
+    <string name="settings_worn_tiles_summary">Tiles show signs of years of play, in the way their material ages</string>
+    <string name="settings_tile_set">Tile Set</string>
+    <string name="settings_tile_set_summary">The material your tiles are made of</string>
+
+    <!-- Tile sets -->
+    <string name="tile_set_bone_bamboo">Bone &amp; Bamboo</string>
+    <string name="tile_set_bone_bamboo_description">Traditional pre-1950s set: a pored bone face dovetailed onto bamboo, with hand-painted engraving. Yellows and fades with age.</string>
+    <string name="tile_set_catalin">Catalin</string>
+    <string name="tile_set_catalin_description">Heavy, glassy resin from the 1920s to 1950s. Ages to a deep butterscotch that makes the paint stand out.</string>
+    <string name="tile_set_celluloid">Celluloid</string>
+    <string name="tile_set_celluloid_description">"French ivory" with fine grain lines on a bamboo back. Yellows unevenly and can crack.</string>
+    <string name="tile_set_melamine">Melamine</string>
+    <string name="tile_set_melamine_description">The standard modern set: bright white, glossy and vividly coloured. Barely changes with use.</string>
+    <string name="tile_set_riichi">Riichi</string>
+    <string name="tile_set_riichi_description">Japanese urea resin with a warm ivory face and crisp, vivid engraving. Warms slightly over the years.</string>
+    <string name="tile_set_acrylic">Acrylic</string>
+    <string name="tile_set_acrylic_description">Pure white face on a jewel-like, translucent back. Very glossy, but scratches turn it hazy.</string>
+    <string name="tile_set_wood">Wood</string>
+    <string name="tile_set_wood_description">Solid wood with visible grain and burned-in, muted symbols. Darkens and dents with use.</string>
+    <string name="tile_set_jade">Jade</string>
+    <string name="tile_set_jade_description">Polished stone with natural veining and gold-filled engraving. Elegant, with lower contrast.</string>
+    <string name="tile_set_travel">Travel</string>
+    <string name="tile_set_travel_description">Light plastic travel set with printed symbols. Yellows, scuffs, and the print rubs away.</string>
+
+    <!-- Tile colour variants -->
+    <string name="tile_colorway_natural">Natural</string>
+    <string name="tile_colorway_green_back">Green back</string>
+    <string name="tile_colorway_red_back">Red back</string>
+    <string name="tile_colorway_blue_back">Blue back</string>
+    <string name="tile_colorway_pink_back">Pink back</string>
+    <string name="tile_colorway_yellow_back">Yellow back</string>
+    <string name="tile_colorway_solid">Solid</string>
+    <string name="tile_colorway_bamboo_back">Bamboo back</string>
+    <string name="tile_colorway_sapphire">Sapphire</string>
+    <string name="tile_colorway_emerald">Emerald</string>
+    <string name="tile_colorway_ruby">Ruby</string>
+    <string name="tile_colorway_light_wood">Light wood</string>
+    <string name="tile_colorway_dark_wood">Dark wood</string>
+    <string name="tile_colorway_green_jade">Green jade</string>
+    <string name="tile_colorway_white_jade">White jade</string>
+    <string name="tile_colorway_white">White</string>
     <string name="settings_corner_index">Draw Corner Index</string>
     <string name="settings_corner_index_summary">Display corner numbers and letters on tiles for easy reading</string>
     <string name="settings_support">♥︎ Support this app</string>

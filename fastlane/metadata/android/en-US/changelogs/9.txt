@@ -1,0 +1,7 @@
+- Nine new tile sets in classic materials like bone, jade and wood, with colour options and an optional worn look
+- New table surfaces: blue felt, leather and a card table
+- Previews of tiles and tables in the settings
+- Lamp lighting, soft shadows and carved symbols
+- The table moves and zooms along with the board
+- Clearer highlights for selected and hinted tiles
+- Gentler automatic zoom and a slower match animation

@@ -471,7 +471,8 @@ class MahjongViewModel(
 
         // Bigger boards are too expensive to prove dead within the solver budget
         private const val BACKGROUND_DEAD_END_MAX_TILES = 48
-        private val WIN_REVEAL_DELAY = 600.milliseconds
+        // The board's match animation (600 ms) plus a short pause before the win dialog
+        private val WIN_REVEAL_DELAY = 780.milliseconds
 
         val Factory = viewModelFactory {
             initializer {

@@ -1,6 +1,8 @@
 package com.vortessence.mahjong.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,7 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -39,13 +46,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vortessence.mahjong.R
 import com.vortessence.mahjong.data.model.GameSettings
 import com.vortessence.mahjong.data.model.TableSurface
+import com.vortessence.mahjong.data.model.TileSet
 import com.vortessence.mahjong.ui.components.SupportDialog
+import com.vortessence.mahjong.ui.components.tiles.TileMaterials
+import com.vortessence.mahjong.ui.components.tiles.TileSetPreview
+import com.vortessence.mahjong.ui.components.tiles.rememberTileLook
+import com.vortessence.mahjong.ui.components.TableSurfacePreview
+import androidx.compose.ui.unit.Dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -288,34 +303,62 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings_table_surface),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_table_surface_summary),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    TableSurfacePicker(settings = settings, onSettingsChanged = onSettingsChanged)
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    TileSetPicker(settings = settings, onSettingsChanged = onSettingsChanged)
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    // Lamp lighting
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        TableSurface.entries.forEach { surface ->
-                            FilterChip(
-                                selected = settings.tableSurface == surface,
-                                onClick = { onSettingsChanged(settings.copy(tableSurface = surface)) },
-                                label = { Text(stringResource(surface.labelRes)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    labelColor = MaterialTheme.colorScheme.onSurface
-                                )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_lamp_lighting),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_lamp_lighting_summary),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Switch(
+                            checked = settings.lampLightingEnabled,
+                            onCheckedChange = { onSettingsChanged(settings.copy(lampLightingEnabled = it)) }
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    // Worn tiles
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_worn_tiles),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_worn_tiles_summary),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = settings.wornTilesEnabled,
+                            onCheckedChange = { onSettingsChanged(settings.copy(wornTilesEnabled = it)) }
+                        )
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
@@ -351,6 +394,192 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.settings_support))
+            }
+        }
+    }
+}
+
+/**
+ * Table surfaces as miniature tables in a scrolling row, with a few tiles of the chosen set and
+ * the lamp when it is on, so the combination can be judged before playing.
+ */
+@Composable
+private fun TableSurfacePicker(
+    settings: GameSettings,
+    onSettingsChanged: (GameSettings) -> Unit,
+) {
+    Text(
+        text = stringResource(R.string.settings_table_surface),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Medium
+    )
+    Text(
+        text = stringResource(R.string.settings_table_surface_summary),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+
+    val tileLook = rememberTileLook(
+        set = settings.tileSet,
+        colorway = settings.tileColorway,
+        worn = settings.wornTilesEnabled,
+        preview = true
+    )
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = settings.tableSurface.ordinal)
+    LazyRow(
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(TableSurface.entries) { surface ->
+            PreviewCard(
+                label = stringResource(surface.labelRes),
+                isSelected = surface == settings.tableSurface,
+                width = 120.dp,
+                onClick = { onSettingsChanged(settings.copy(tableSurface = surface)) },
+            ) {
+                TableSurfacePreview(
+                    surface = surface,
+                    tileLook = tileLook,
+                    lampLighting = settings.lampLightingEnabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(124.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = stringResource(settings.tableSurface.descriptionRes),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+/** A selectable card with a preview and a label below it, for the appearance pickers. */
+@Composable
+private fun PreviewCard(
+    label: String,
+    isSelected: Boolean,
+    width: Dp,
+    onClick: () -> Unit,
+    preview: @Composable () -> Unit,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(width)
+            .clip(shape)
+            .border(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant
+                },
+                shape = shape
+            )
+            .selectable(
+                selected = isSelected,
+                role = Role.RadioButton,
+                onClick = { if (!isSelected) onClick() }
+            )
+            .padding(6.dp)
+    ) {
+        preview()
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * Tile sets as small previews in a scrolling row, shown new or worn to match the Worn Tiles
+ * setting, followed by the colour variants of the selected set.
+ */
+@Composable
+private fun TileSetPicker(
+    settings: GameSettings,
+    onSettingsChanged: (GameSettings) -> Unit,
+) {
+    Text(
+        text = stringResource(R.string.settings_tile_set),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Medium
+    )
+    Text(
+        text = stringResource(R.string.settings_tile_set_summary),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = settings.tileSet.ordinal)
+    LazyRow(
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(TileSet.entries) { set ->
+            val isSelected = set == settings.tileSet
+            PreviewCard(
+                label = stringResource(set.labelRes),
+                isSelected = isSelected,
+                width = 116.dp,
+                onClick = { onSettingsChanged(settings.copy(tileSet = set, tileColorway = 0)) },
+            ) {
+                TileSetPreview(
+                    set = set,
+                    colorway = if (isSelected) settings.tileColorway else 0,
+                    worn = settings.wornTilesEnabled,
+                    surface = settings.tableSurface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(62.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = stringResource(settings.tileSet.descriptionRes),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    val material = TileMaterials.of(settings.tileSet)
+    if (material.colorways.size > 1) {
+        Spacer(modifier = Modifier.height(8.dp))
+        val selectedColorway = settings.tileColorway.takeIf { it in material.colorways.indices } ?: 0
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+        ) {
+            material.colorways.forEachIndexed { index, colorway ->
+                FilterChip(
+                    selected = index == selectedColorway,
+                    onClick = { onSettingsChanged(settings.copy(tileColorway = index)) },
+                    label = { Text(stringResource(colorway.labelRes)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        labelColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
             }
         }
     }
